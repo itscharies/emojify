@@ -3,5 +3,7 @@
     "jsx": "react",
     "esModuleInterop": true
   },
-  "include": ["src/**/*", "types.d.ts"]
+  "include": [
+    "src/**/*",
+  ]
 }

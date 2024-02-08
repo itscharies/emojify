@@ -1,5 +1,4 @@
 import React from "react";
-import styles from './text.module.scss';
 import classNames from "classnames";
 
 type Weight = 'regular' | 'bold';
@@ -19,13 +18,13 @@ export function Text({
     size?: Size,
     align?: Align
 }>) {
-    return <p className={classNames(styles.text, {
-        [styles.textBold]: weight === 'bold',
-        [styles.textItalic]: style === 'italic',
-        [styles.textSmall]: size === 'small',
-        [styles.textXSmall]: size === 'xsmall',
-        [styles.textAlignStart]: align === 'start',
-        [styles.textAlignCenter]: align === 'center',
-        [styles.textAlignEnd]: align === 'end',
+    return <p className={classNames("font-body text-base text-slate-100", {
+        ['font-bold']: weight === 'bold',
+        ['font-italic']: style === 'italic',
+        ['text-sm']: size === 'small',
+        ['text-xs']: size === 'xsmall',
+        ['text-start']: align === 'start',
+        ['text-center']: align === 'center',
+        ['text-end']: align === 'end',
     })}>{children}</p>
 }

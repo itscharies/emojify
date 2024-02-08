@@ -4,12 +4,8 @@ import { Text } from '../components/typography/text';
 import { Button } from "../components/input/button";
 import { Range } from "../components/input/range";
 import { FileInput } from "../components/input/file";
-import { Card } from "../components/card";
-import { Image } from "../components/image";
-import { Grid } from "../components/grid";
 import { Checkbox } from "../components/input/checkbox";
-import styles from './editor.module.scss';
-import classNames from "classnames";
+import { Image } from "../components/image";
 
 let id = 0;
 
@@ -92,45 +88,46 @@ export default function Editor() {
     const downloadPreview = composeLayers(layers);
     const hasLayers = layers.length > 0;
 
-    return <Grid rows="1fr auto auto auto">
-        <Grid rows="repeat(auto-fill, minmax(auto, 100%))">
+    if (!hasLayers) {
+        return <div className="grow">
+            <FileInput onFileUpload={uploadFile} label={hasLayers ? 'Upload another image' : 'Upload an image to get started'} />
+        </div>
+    }
+
+    return <div className="flex flex-col h-full gap-6">
+        <div className="grow grid gap-6">
             {layers.map((layer, i) => {
                 const { image, edits: { flipX, flipY, scale, resize } } = layer;
                 const { bitmap: { width, height } } = image;
-                return <Card key={i}>
-                    <Grid columns="128px 1fr">
-                        <Grid gap="small">
+                return <div className="border-slate-500" key={i}>
+                    <div className="flex w-full gap-6">
+                        <div className="w-40 flex flex-col gap-2 items-center">
                             <LayerPreview image={image} />
-                            <Text size="xsmall">{width}x{height}</Text>
-                        </Grid>
-                        <Grid gap="small">
+                            <Text size="xsmall">({width}x{height})</Text>
+                        </div>
+                        <div className="grow grid grid-flow-row gap-4">
                             <Checkbox value={flipX} onChange={(value) => editLayer(layer, { flipX: value })} label="Flip X" />
                             <Checkbox value={flipY} onChange={(value) => editLayer(layer, { flipY: value })} label="Flip Y" />
                             <Range value={scale * 100} min={0} max={100} onChange={(value) => editLayer(layer, { scale: value / 100 })} label="scale" />
-                            <Button onClick={() => deleteLayer(layer)}><Text weight="bold">Delete</Text></Button>
-                        </Grid>
-                    </Grid>
-                </Card>
-            })}
-        </Grid>
-        <div className={classNames({ [styles.nextUpload]: hasLayers })}>
-            <FileInput onFileUpload={uploadFile} label={hasLayers ? 'Upload another image' : 'Upload an image to get started'} />
-        </div>
-        {hasLayers && <>
-            <hr />
-            <div className={styles.footer}>
-                <Grid columns={`${OUTPUT_SIZE}px 1fr`}>
-                    <div style={{ width: `${OUTPUT_SIZE}px`, height: `${OUTPUT_SIZE}px` }}>
-                        <LayerPreview image={downloadPreview} />
+                            <Button onClick={() => deleteLayer(layer)}><Text weight="bold" align="center">Delete</Text></Button>
+                        </div>
                     </div>
-                    <input type="text" value={name} onInput={onNameChange} />
-                </Grid>
-                <Button onClick={() => onClickDownload(downloadPreview, name)}>
-                    <Text weight="bold">Download</Text>
-                </Button>
+                </div>
+            })}
+        </div>
+        <hr />
+        <div className="grid grid-flow-col justify-between items-center">
+            <div className="h-20 grid grid-flow-col gap-6 items-center">
+                <div style={{ width: `${OUTPUT_SIZE}px`, height: `${OUTPUT_SIZE}px` }}>
+                    <LayerPreview image={downloadPreview} />
+                </div>
+                <input className="h-10" type="text" value={name} onInput={onNameChange} />
             </div>
-        </>}
-    </Grid>
+            <Button onClick={() => onClickDownload(downloadPreview, name)}>
+                <Text weight="bold" align="center">Download</Text>
+            </Button>
+        </div>
+    </div>
 }
 
 function LayerPreview({ image }: { image: Jimp }) {

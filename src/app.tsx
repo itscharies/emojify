@@ -1,19 +1,16 @@
 import React, { Suspense, useCallback, useState } from "react";
-import styles from './app.module.scss'
 import { Title } from './components/typography/title';
 import { Text } from './components/typography/text';
 
 const Editor = React.lazy(() => import('./editor/editor'));
 
 export function App() {
-    const [image, setImage] = useState<File | undefined>(undefined);
-
-    return <div className={styles.container}>
+    return <div className="max-w-screen-lg w-full h-full p-6 flex flex-col gap-6">
         <header>
             <Title level={1}>Emojify</Title>
         </header>
-        <main>
-            <Suspense fallback={<Text weight="bold">Loading...</Text>}>
+        <main className="grow flex flex-col">
+            <Suspense fallback={<></>}>
                 <Editor />
             </Suspense>
         </main>
