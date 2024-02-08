@@ -9,17 +9,17 @@ export function FileInput({ onFileUpload, label }: { onFileUpload: (files: FileL
         <input
             id={id}
             type='file'
-            className="opacity-0 absolute inset-0 w-full h-full hover:pointer"
+            className="absolute opacity-0 inset-0 w-full h-full"
             name="avatar"
             accept="image/*"
             multiple={true}
-            onDragEnter={() => setActive(true)}
-            onDragLeave={() => setActive(false)}
+            // onDragEnter={() => setActive(true)}
+            // onDragLeave={() => setActive(false)}
             onChange={(e) => {
-                onFileUpload(e.target.files);
-                setActive(false);
+                onFileUpload(e.target.files || undefined);
+                // setActive(false);
             }} />
-        <label className={classNames("border rounded border-slate-400 p-6 flex w-full h-full justify-center items-center pointer-events-none", { "opacity-50 cursor-pointer": active })} htmlFor={id}>
+        <label className={classNames("absolute border rounded border-slate-500 p-6 flex w-full h-full justify-center items-center cursor-pointer hover:opacity-50")} htmlFor={id}>
             <Text>{label}</Text>
         </label>
     </div>

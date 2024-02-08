@@ -3,7 +3,7 @@ import classNames from "classnames";
 
 type Weight = 'regular' | 'bold';
 type Style = 'regular' | 'italic';
-type Size = 'regular' | 'small' | 'xsmall';
+type Size = 'regular' | 'small' | 'xsmall' | 'xxsmall';
 type Align = 'start' | 'center' | 'end';
 
 export function Text({
