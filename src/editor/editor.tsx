@@ -6,12 +6,11 @@ import { FileInput } from "../components/input/file";
 import { Checkbox } from "../components/input/checkbox";
 import { Image } from "../components/image";
 import { observer, useLocalStore } from "mobx-react-lite";
-import { action, autorun, makeAutoObservable, observable, runInAction } from "mobx";
+import { action, autorun, makeAutoObservable, observable, reaction, runInAction } from "mobx";
 import Jimp from "jimp/es";
 import { Divider } from "../components/divider";
 import { IdGenerator } from "../id_generator";
-
-type ResizeMode = 'resize' | 'cover' | 'contain';
+import { WorkerRequest, WorkerRequestLayer, WorkerRequestPreview, WorkerResponse, WorkerResponseLayer, WorkerResponsePreview } from "../worker";
 
 export const EDIT_SIZE = 512;
 export const OUTPUT_SIZE = 64;
@@ -19,6 +18,7 @@ export const OUTPUT_SIZE = 64;
 export class EditorState {
     layers: Map<string, LayerState> = observable.map([], { deep: true });
     name: string = '';
+    previewUrl: string = '';
 
     constructor() {
         makeAutoObservable(this);
@@ -28,12 +28,8 @@ export class EditorState {
         return this.layers.size > 0;
     }
 
-    get preview() {
-        if (!this.hasLayers) {
-            return undefined;
-        }
-        return undefined;
-        // return composeImages(Array.from(this.layers.values()).map(layer => layer.image));
+    get hash(): string {
+        return Array.from(this.layers.values()).map(layer => JSON.stringify(layer.edits)).join(',');
     }
 }
 
@@ -54,7 +50,7 @@ export class LayerState {
 }
 
 export class Edits {
-    resize: ResizeMode = 'contain';
+    resize: 'resize' | 'cover' | 'contain' = 'contain';
     flipX: boolean = false;
     flipY: boolean = false;
     constructor() {
@@ -63,24 +59,35 @@ export class Edits {
 }
 
 const Editor = observer(() => {
+    const idGenerator = useMemo(() => new IdGenerator(), []);
     const store = useLocalStore(() => new EditorState());
 
-    const idGenerator = useMemo(() => new IdGenerator(), []);
-    const imageWorker = useMemo(() => new Worker(new URL("../worker.ts", import.meta.url), { type: "module" }), []);
+    const onRenderLayer = useCallback((data: WorkerResponseLayer) => {
+        const { id, url } = data;
+        const layer = store.layers.get(id);
+        if (layer) {
+            runInAction(() => {
+                layer.dataUrl = url;
+            })
+        }
+    }, [store]);
+
+    const onRenderPreview = useCallback((data: WorkerResponsePreview) => {
+        const { url } = data;
+        runInAction(() => {
+            store.previewUrl = url;
+        })
+    }, [store]);
+
+    const layerWorker = useMemo(() => new ImageWorker(onRenderLayer, onRenderPreview), []);
+    const previewWorker = useMemo(() => new ImageWorker(onRenderLayer, onRenderPreview), []);
 
     useEffect(() => {
-        imageWorker.onmessage = (e: MessageEvent<{ id: string, url: string }>) => {
-            if (e.data) {
-                const { id, url } = e.data;
-                const layer = store.layers.get(id);
-                if (layer) {
-                    runInAction(() => {
-                        layer.dataUrl = url;
-                    })
-                }
-            }
+        if (!store.hasLayers) {
+            return;
         }
-    }, [imageWorker]);
+        previewWorker.renderPreview({ layers: Array.from(store.layers.values()) })
+    }, [store.hash])
 
     const uploadFile = action((files: FileList | undefined) => {
         if (!files) {
@@ -96,15 +103,12 @@ const Editor = observer(() => {
 
             autorun(() => {
                 const { flipX, flipY, resize } = layer.edits;
-                imageWorker.postMessage({ id, file, edits: { flipX, flipY, resize } });
+                layerWorker.renderLayer({ id, file, edits: { flipX, flipY, resize } });
             });
         });
     });
 
-    const onClickDownload = (image: Jimp, name: string) => void downloadImage(image, name);
-    const downloadImage = async (image: Jimp, name: string) => {
-        const clone = image.clone();
-        const url = await clone.resize(OUTPUT_SIZE, OUTPUT_SIZE).getBase64Async(Jimp.AUTO);
+    const downloadImage = (url: string, name: string) => {
         const link = document.createElement("a");
         link.download = name;
         link.href = url;
@@ -113,7 +117,7 @@ const Editor = observer(() => {
         document.body.removeChild(link);
     }
 
-    const { layers, hasLayers, name, preview } = store;
+    const { hasLayers } = store;
 
     if (!hasLayers) {
         return <div className="grow">
@@ -121,6 +125,7 @@ const Editor = observer(() => {
         </div>
     }
 
+    const { layers, name, previewUrl } = store;
 
     return <div className="flex flex-col h-full gap-6">
         <div className="grow flex flex-col gap-6">
@@ -135,11 +140,11 @@ const Editor = observer(() => {
         <div className="grid grid-flow-col justify-between items-center">
             <div className="h-20 grid grid-flow-col gap-6 items-center">
                 <div style={{ width: `${OUTPUT_SIZE}px`, height: `${OUTPUT_SIZE}px` }}>
-                    {/* <Preview image={preview} /> */}
+                    <Image src={previewUrl} />
                 </div>
                 <input className="h-10" type="text" value={name} onInput={action((e) => store.name = e.currentTarget.value)} />
             </div>
-            <Button onClick={() => preview && onClickDownload(preview, name)}>
+            <Button onClick={() => previewUrl && downloadImage(previewUrl, name)}>
                 <Text weight="bold" align="center">Download</Text>
             </Button>
         </div>
@@ -154,10 +159,7 @@ const LayerEditor = observer(({ layer, onDelete }: { layer: LayerState, onDelete
         <div className="flex w-full gap-6">
             <div className="w-40 flex flex-col gap-2 items-center">
                 <Image src={dataUrl} />
-                <div className="flex flex-row gap-1 items-center">
-                    <span className="break-all"><Text size="xsmall">{name}</Text></span>
-                    {/* <Text size="xsmall">()</Text> */}
-                </div>
+                <span className="break-all"><Text size="xsmall">{name}</Text></span>
             </div>
             <div className="grow grid grid-flow-row gap-4">
                 <Checkbox value={flipX} onChange={action((value) => edits.flipX = !value)} label="Flip X" />
@@ -168,12 +170,38 @@ const LayerEditor = observer(({ layer, onDelete }: { layer: LayerState, onDelete
     </div>
 });
 
-function Preview({ image }: { image: Jimp }) {
-    const [src, setSrc] = useState<string | undefined>(undefined);
-    useEffect(() => {
-        image.getBase64Async(Jimp.AUTO).then(url => setSrc(url));
-    }, [image]);
-    return <Image src={src} />
+class ImageWorker {
+    private worker: Worker;
+    constructor(layerHandler: (data: Omit<WorkerResponseLayer, 'type'>) => void, previewHandler: (data: Omit<WorkerResponsePreview, 'type'>) => void) {
+        this.worker = new Worker(new URL("../worker.ts", import.meta.url), { type: "module" });
+        this.worker.onmessage = (e: MessageEvent<WorkerResponse>) => {
+            if (!e.data) {
+                throw new Error('oops');
+            }
+            switch (e.data.type) {
+                case "layer": {
+                    layerHandler(e.data);
+                    break;
+                }
+                case "preview": {
+                    previewHandler(e.data);
+                    break;
+                }
+            }
+        }
+    }
+
+    renderLayer(data: WorkerRequestLayer) {
+        this.send({ type: 'layer', ...data });
+    }
+
+    renderPreview(data: WorkerRequestPreview) {
+        this.send({ type: 'preview', ...data });
+    }
+
+    private send(data: WorkerRequest) {
+        this.worker.postMessage(data);
+    }
 }
 
 export default Editor;
