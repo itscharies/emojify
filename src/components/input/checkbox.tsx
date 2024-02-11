@@ -1,4 +1,4 @@
-import React, { useId, useState } from "react";
+import React, { useId } from "react";
 import { Text } from "../typography/text";
 
 export function Checkbox({ value, onChange, label }: { value: boolean, onChange: (value: boolean) => void, label: string }) {
