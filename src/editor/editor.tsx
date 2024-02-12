@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useCallback } from "react";
-import { observer, useLocalStore } from "mobx-react-lite";
+import { observer, useLocalObservable } from "mobx-react-lite";
 import {
   action,
   autorun,
@@ -40,7 +40,9 @@ export class EditorState {
   previewUrls: string[] = [];
   slice: Slice = { x: 2, y: 2 };
   get isGif() {
-    return false;
+    return Array.from(this.layers.values()).some(
+      (layer) => layer.file.type === "image/gif",
+    );
   }
   get hasLayers() {
     return this.layers.size > 0;
@@ -87,7 +89,7 @@ export class Edits {
 
 const Editor = observer(() => {
   const idGenerator = useMemo(() => new IdGenerator(), []);
-  const store = useLocalStore(() => new EditorState());
+  const store = useLocalObservable(() => new EditorState());
 
   const onRenderLayer = useCallback(
     (data: WorkerResponseLayer) => {
@@ -320,7 +322,8 @@ const LayerEditor = observer(
   },
 );
 
-// TODO; Scale properly
+// TODO: Scale properly
+// TODO: Loading state
 const EmojiPreview = ({
   images,
   slice,

@@ -8,7 +8,7 @@ const Editor = React.lazy(() => import("./editor/editor"));
 
 export function App() {
   return (
-    <div className="max-w-screen-lg w-full h-full p-6 flex flex-col gap-6">
+    <div className="max-w-screen-lg w-full h-full p-6 flex flex-col gap-6 m-auto">
       <header>
         <Title level={1}>
           Emojify <RandomEmoji />
