@@ -1,6 +1,6 @@
-import Jimp from "jimp/es";
+import type Jimp from "jimp";
+import jimp from "jimp/es";
 import { OUTPUT_SIZE, Edits, Slice, ResizeMode } from "./editor/editor";
-import { log } from "console";
 
 export type WorkerRequestLayer = {
   id: string;
@@ -29,7 +29,7 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
         const { id, file, edits, slice } = e.data;
         const images = await processImage(file, edits, slice);
         const urls: string[] = await Promise.all(
-          images.map((image) => image.getBase64Async(Jimp.AUTO))
+          images.map((image) => image.getBase64Async(jimp.AUTO)),
         );
         const res: WorkerResponse = {
           type: "layer",
@@ -42,7 +42,7 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
       case "preview": {
         const { layers, slice } = e.data;
         const layerImages: Jimp[][] = await Promise.all(
-          layers.map(({ file, edits }) => processImage(file, edits, slice))
+          layers.map(({ file, edits }) => processImage(file, edits, slice)),
         );
         const images: Jimp[] = [];
         const length = slice.x * slice.y;
@@ -52,7 +52,7 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
           images.push(composeImages(cellImages));
         }
         const urls: string[] = await Promise.all(
-          images.map((image) => image.getBase64Async(Jimp.AUTO))
+          images.map((image) => image.getBase64Async(jimp.AUTO)),
         );
         const res: WorkerResponse = {
           type: "preview",
@@ -68,10 +68,10 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
 async function processImage(
   file: File,
   edits: Edits,
-  slice: Slice
+  slice: Slice,
 ): Promise<Jimp[]> {
   const fileUrl = URL.createObjectURL(file);
-  const image = await Jimp.read(fileUrl);
+  const image = await jimp.read(fileUrl);
   URL.revokeObjectURL(fileUrl);
   const edited = applyEdits(image, edits);
   return splitFrame(edited, slice, edits.resize, image.getExtension());
@@ -89,7 +89,7 @@ function splitFrame(
   image: Jimp,
   { x, y }: Slice,
   mode: ResizeMode,
-  ext: string
+  ext: string,
 ): Jimp[] {
   const images: Jimp[] = [];
   const width = x * OUTPUT_SIZE;
@@ -124,4 +124,4 @@ function composeImages(images: Jimp[]) {
   return prevImage;
 }
 
-export {};
+export { };
