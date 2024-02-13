@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 import React, { useCallback, useEffect, useMemo } from "react";
 import { observer, useLocalObservable } from "mobx-react-lite";
 import {
@@ -19,10 +20,9 @@ import { Image } from "../components/image";
 import { Divider } from "../components/divider";
 import { Slice } from "../components/input/slice";
 import { TextInput } from "../components/input/text";
-import classNames from "classnames";
 import { Field } from "../components/input/field";
 import { Label } from "../components/input/label";
-// import { Select } from "../components/input/select";
+import { Select } from "../components/input/select";
 import { RadioTabs } from "../components/input/radio_tabs";
 import { IdGenerator } from "../id_generator";
 import {
@@ -33,6 +33,7 @@ import {
   WorkerResponseLayer,
   WorkerResponsePreview,
 } from "../worker";
+import classNames from "classnames";
 
 export const OUTPUT_SIZE = 64;
 
@@ -45,6 +46,7 @@ export class EditorState {
   previewUrls: string[] = [];
   slice: Slice = { x: 1, y: 1 };
   speed: number = 2;
+  quality: number | undefined = 8;
   get isGif() {
     return Array.from(this.layers.values()).some(
       (layer) => layer.file.type === "image/gif",
@@ -93,6 +95,40 @@ export class Edits {
   }
 }
 
+const RESIZE_OPTIONS: { label: string; value: ResizeMode }[] = [
+  {
+    label: "Fit",
+    value: "contain",
+  },
+  {
+    label: "Cover",
+    value: "cover",
+  },
+  {
+    label: "Stretch",
+    value: "resize",
+  },
+];
+
+const QUALITY_OPTIONS: { label: string; value: string }[] = [
+  {
+    label: "Full",
+    value: "full",
+  },
+  {
+    label: "High",
+    value: "high",
+  },
+  {
+    label: "Medium",
+    value: "medium",
+  },
+  {
+    label: "Low",
+    value: "low",
+  },
+];
+
 const Editor = observer(() => {
   const idGenerator = useMemo(() => new IdGenerator(), []);
   const store = useLocalObservable(() => new EditorState());
@@ -131,13 +167,15 @@ const Editor = observer(() => {
 
   useEffect(() => {
     const dispose = autorun(() => {
-      const { slice, speed, layers, hasLayers } = store;
+      const { slice, speed, quality, layers, hasLayers } = store;
       if (hasLayers) {
+        //TODO: Debounce
         previewWorker.renderPreview({
           layers: Array.from(layers.values()).map((layer) => toJS(layer)),
           settings: {
             slice: toJS(slice),
             speed,
+            quality,
           },
         });
       }
@@ -159,7 +197,8 @@ const Editor = observer(() => {
         (store.name = files[0].name.split(".").shift() || "emoji");
       const dispose = autorun(() => {
         const { flipX, flipY, resize } = layer.edits;
-        const { slice, speed } = store;
+        const { slice, speed, quality } = store;
+        //TODO: Debounce
         layerWorker.renderLayer({
           id,
           file,
@@ -167,6 +206,7 @@ const Editor = observer(() => {
           settings: {
             slice: toJS(slice),
             speed,
+            quality,
           },
         });
       });
@@ -225,12 +265,28 @@ const Editor = observer(() => {
     );
   }
 
-  const { layers, name, previewUrls, slice, speed, isGif } = store;
+  const { layers, name, previewUrls, slice, speed, quality, isGif } = store;
   const { x, y } = slice;
   const ext = isGif ? ".gif" : ".png";
 
   const onChangeSpeed = action((speed) => {
     store.speed = speed;
+  });
+
+  const onChangeQuality = action((quality: string) => {
+    switch (quality) {
+      case "high":
+        store.quality = 15;
+        break;
+      case "medium":
+        store.quality = 10;
+        break;
+      case "low":
+        store.quality = 8;
+        break;
+      default:
+        store.quality = undefined;
+    }
   });
 
   const onChangeSliceX = action((x) => {
@@ -268,25 +324,51 @@ const Editor = observer(() => {
       </div>
       <Divider />
       <div className="flex flex-row gap-6 items-center">
-        <div className="w-40 flex items-center justify-center">
-          <div className="w-full flex items-center justify-center">
-            {previewUrls && <EmojiPreview images={previewUrls} slice={slice} />}
+        <div className="w-40 flex flex-col gap-2 items-center self-center">
+          {previewUrls && <EmojiPreview images={previewUrls} slice={slice} />}
+          <span className="break-all">
+            <Text size="xsmall">{Math.max(...previewUrls.map((url) => getImageSize(url)))} bytes</Text>
+          </span>
+        </div>
+        <div className="grow grid gap-6 grid-flow-row justify-self-stretch items-center">
+          <div className="grid gap-10 grid-flow-col-dense justify-start">
+            <Slice
+              valueX={x}
+              valueY={y}
+              onChangeX={onChangeSliceX}
+              onChangeY={onChangeSliceY}
+            />
             {isGif && (
               <Field>
                 <Label>Speed</Label>
-                <Number value={speed} onChange={onChangeSpeed} label="Speed" />
+                <Number
+                  value={speed}
+                  onChange={onChangeSpeed}
+                  min={2}
+                  max={30}
+                />
+              </Field>
+            )}
+            {isGif && (
+              <Field>
+                <Label>Quality</Label>
+                <Select
+                  options={QUALITY_OPTIONS}
+                  value={
+                    quality === 15
+                      ? "high"
+                      : quality === 10
+                        ? "medium"
+                        : quality === 8
+                          ? "low"
+                          : "full"
+                  }
+                  onChange={onChangeQuality}
+                />
               </Field>
             )}
           </div>
-        </div>
-        <div className="grow grid gap-6 grid-flow-row justify-self-stretch items-center">
-          <Slice
-            valueX={x}
-            valueY={y}
-            onChangeX={onChangeSliceX}
-            onChangeY={onChangeSliceY}
-          />
-          <div className="flex gap-4 flex-row items-end">
+          <div className="flex gap-6 flex-row items-end">
             <div className="grow">
               <Field>
                 <Label>File name</Label>
@@ -304,21 +386,6 @@ const Editor = observer(() => {
     </div>
   );
 });
-
-const RESIZE_OPTIONS: { label: string; value: ResizeMode }[] = [
-  {
-    label: "Fit",
-    value: "contain",
-  },
-  {
-    label: "Cover",
-    value: "cover",
-  },
-  {
-    label: "Stretch",
-    value: "resize",
-  },
-];
 
 const LayerEditor = observer(
   ({ layer, onDelete }: { layer: LayerState; onDelete(id: string): void }) => {
@@ -405,6 +472,17 @@ const EmojiPreview = ({
       </div>
     </div>
   );
+};
+
+const getImageSize = (src: string) => {
+  const base64Length = src.length - (src.indexOf(",") + 1);
+  const padding =
+    src.charAt(src.length - 2) === "="
+      ? 2
+      : src.charAt(src.length - 1) === "="
+        ? 1
+        : 0;
+  return base64Length * 0.75 - padding;
 };
 
 const mapFromSlice = (images: string[], slice: Slice): string[][] => {

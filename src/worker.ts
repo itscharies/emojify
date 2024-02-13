@@ -3,21 +3,20 @@ import jimp from "jimp/es";
 import { GifCodec, GifFrame, GifUtil } from "gifwrap";
 import { Edits, OUTPUT_SIZE, ResizeMode, Slice } from "./editor/editor";
 
+type Settings = {
+  slice: Slice;
+  speed: number;
+  quality?: number;
+};
 export type WorkerRequestLayer = {
   id: string;
   file: File;
   edits: Edits;
-  settings: {
-    slice: Slice;
-    speed: number;
-  };
+  settings: Settings;
 };
 export type WorkerRequestPreview = {
   layers: { file: File; edits: Edits }[];
-  settings: {
-    slice: Slice;
-    speed: number;
-  };
+  settings: Settings;
 };
 export type WorkerRequest =
   | ({ type: "layer" } & WorkerRequestLayer)
@@ -37,10 +36,10 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
           id,
           file,
           edits,
-          settings: { slice, speed },
+          settings: { slice, speed, quality },
         } = e.data;
         const frames: Jimp[] = await processImage(file, edits, slice);
-        const url = await getDataUrl(frames, speed);
+        const url = await getDataUrl(frames, speed, quality);
         const res: WorkerResponse = {
           type: "layer",
           id,
@@ -52,7 +51,7 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
       case "preview": {
         const {
           layers,
-          settings: { slice, speed },
+          settings: { slice, speed, quality },
         } = e.data;
         const layerImages: Jimp[][] = await Promise.all(
           layers.map(({ file, edits }) => processImage(file, edits, slice)),
@@ -70,7 +69,7 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
           );
         });
         const urls = await Promise.all(
-          parts.map((frames) => getDataUrl(frames, speed)),
+          parts.map((frames) => getDataUrl(frames, speed, quality)),
         );
         const res: WorkerResponse = {
           type: "preview",
@@ -161,17 +160,24 @@ async function mergeLayers(layers: Jimp[][]): Promise<Jimp[]> {
   return framesWithLayers.map((layers) => composeImages(layers));
 }
 
-async function getDataUrl(frames: Jimp[], speed: number): Promise<string> {
+async function getDataUrl(
+  frames: Jimp[],
+  speed: number,
+  quality?: number,
+): Promise<string> {
   if (frames.length > 1) {
     const codec = new GifCodec();
     // TODO: preserve frame rate
-    const gifFrames = frames.map(({ bitmap }) => {
-      const frame = new GifFrame(bitmap);
+    const gifFrames = frames.map((jimpFrame) => {
+      if (quality) {
+        jimpFrame.posterize(quality);
+      }
+      const frame = new GifFrame(jimpFrame.bitmap);
       frame.delayCentisecs = speed;
       return frame;
     });
     // Ensure color isn't out of bounds
-    GifUtil.quantizeDekker(gifFrames, 256);
+    GifUtil.quantizeSorokin(gifFrames, 256);
     return codec
       .encodeGif(gifFrames, { colorScope: 2 })
       .then((gif) => "data:image/gif;base64," + gif.buffer.toString("base64"));

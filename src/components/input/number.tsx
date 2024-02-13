@@ -4,13 +4,16 @@ import { FieldContext } from "./field";
 export function Number({
   value,
   onChange,
+  min,
+  max,
 }: {
   value: number;
   onChange: (value: number) => void;
-  label: string;
+  min?: number;
+  max?: number;
 }) {
   const classes =
-    "w-min min-w-10 h-4 grid content-center items-center px-2 py-3 border border-slate-100 rounded hover:cursor-pointer";
+    "h-10 grid content-center items-center px-2 py-1 border border-slate-100 rounded hover:cursor-pointer";
   return (
     <FieldContext.Consumer>
       {(id) => {
@@ -20,6 +23,8 @@ export function Number({
             id={id}
             type="number"
             value={value}
+            min={min}
+            max={max}
             onChange={(e) => {
               onChange(parseInt(e.target.value));
             }}

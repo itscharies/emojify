@@ -15,7 +15,7 @@ export function Slice({
   const id1 = useId();
   const id2 = useId();
   const classes =
-    "w-min min-w-4 h-4 grid content-center items-center px-2 py-3 border border-slate-100 rounded hover:cursor-pointer";
+    "h-10 grid content-center items-center px-2 py-1 border border-slate-100 rounded hover:cursor-pointer";
   return (
     <div className="grid grid-flow-row gap-1 w-fit items-center">
       <Text weight="bold">Slices</Text>
@@ -29,6 +29,8 @@ export function Slice({
             id={id1}
             type="number"
             value={valueX}
+            min={1}
+            max={10}
             onChange={(e) => {
               onChangeX(parseInt(e.target.value));
             }}
@@ -43,6 +45,8 @@ export function Slice({
             id={id2}
             type="number"
             value={valueY}
+            min={1}
+            max={10}
             onChange={(e) => {
               onChangeY(parseInt(e.target.value));
             }}
