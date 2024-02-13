@@ -1,7 +1,7 @@
 import type Jimp from "jimp";
 import jimp from "jimp/es";
-import { GifFrame, GifUtil, GifCodec } from "gifwrap";
-import { OUTPUT_SIZE, Edits, Slice, ResizeMode } from "./editor/editor";
+import { GifCodec, GifFrame, GifUtil } from "gifwrap";
+import { Edits, OUTPUT_SIZE, ResizeMode, Slice } from "./editor/editor";
 
 export type WorkerRequestLayer = {
   id: string;

@@ -7,7 +7,7 @@ export function Button({
   return (
     <button
       type="button"
-      className="w-min min-w-40 h-6 grid content-center items-center p-6 border border-slate-100 rounded hover:cursor-pointer hover:opacity-75"
+      className="w-min min-w-40 h-10 grid content-center items-center px-2 py-1 border border-slate-100 rounded hover:cursor-pointer hover:opacity-75"
       onClick={onClick}
     >
       {children}

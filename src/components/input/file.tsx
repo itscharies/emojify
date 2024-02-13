@@ -19,11 +19,8 @@ export function FileInput({
         name="avatar"
         accept="image/*"
         multiple={true}
-        // onDragEnter={() => setActive(true)}
-        // onDragLeave={() => setActive(false)}
         onChange={(e) => {
           onFileUpload(e.target.files || undefined);
-          // setActive(false);
         }}
       />
       <label

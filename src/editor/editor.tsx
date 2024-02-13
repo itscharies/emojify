@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useCallback } from "react";
+import React, { useCallback, useEffect, useMemo } from "react";
 import { observer, useLocalObservable } from "mobx-react-lite";
 import {
   action,
@@ -17,6 +17,13 @@ import { Checkbox } from "../components/input/checkbox";
 import { Number } from "../components/input/number";
 import { Image } from "../components/image";
 import { Divider } from "../components/divider";
+import { Slice } from "../components/input/slice";
+import { TextInput } from "../components/input/text";
+import classNames from "classnames";
+import { Field } from "../components/input/field";
+import { Label } from "../components/input/label";
+// import { Select } from "../components/input/select";
+import { RadioTabs } from "../components/input/radio_tabs";
 import { IdGenerator } from "../id_generator";
 import {
   WorkerRequest,
@@ -26,9 +33,6 @@ import {
   WorkerResponseLayer,
   WorkerResponsePreview,
 } from "../worker";
-import { Slice } from "../components/input/slice";
-import { TextInput } from "../components/input/text";
-import classNames from "classnames";
 
 export const OUTPUT_SIZE = 64;
 
@@ -251,7 +255,7 @@ const Editor = observer(() => {
         {Array.from(layers.entries()).map(([id, layer]) => {
           return <LayerEditor key={id} layer={layer} onDelete={onDelete} />;
         })}
-        <div>
+        <div className="h-20">
           <FileInput
             onFileUpload={(files) => uploadFile(files)}
             label={
@@ -263,55 +267,101 @@ const Editor = observer(() => {
         </div>
       </div>
       <Divider />
-      <div className="grid gap-6 grid-flow-col justify-between items-center">
-        <div className="min-w-10">
-          {previewUrls && <EmojiPreview images={previewUrls} slice={slice} />}
+      <div className="flex flex-row gap-6 items-center">
+        <div className="w-40 flex items-center justify-center">
+          <div className="w-full flex items-center justify-center">
+            {previewUrls && <EmojiPreview images={previewUrls} slice={slice} />}
+            {isGif && (
+              <Field>
+                <Label>Speed</Label>
+                <Number value={speed} onChange={onChangeSpeed} label="Speed" />
+              </Field>
+            )}
+          </div>
         </div>
-        {isGif && (
-          <Number value={speed} onChange={onChangeSpeed} label="Speed" />
-        )}
-        <Slice
-          valueX={x}
-          valueY={y}
-          onChangeX={onChangeSliceX}
-          onChangeY={onChangeSliceY}
-        />
-        <TextInput value={name} onChange={onChangeName} label="Name:" />
-        <Button onClick={() => downloadBundle(previewUrls, name, ext)}>
-          <Text weight="bold" align="center">
-            Download
-          </Text>
-        </Button>
+        <div className="grow grid gap-6 grid-flow-row justify-self-stretch items-center">
+          <Slice
+            valueX={x}
+            valueY={y}
+            onChangeX={onChangeSliceX}
+            onChangeY={onChangeSliceY}
+          />
+          <div className="flex gap-4 flex-row items-end">
+            <div className="grow">
+              <Field>
+                <Label>File name</Label>
+                <TextInput value={name} onChange={onChangeName} />
+              </Field>
+            </div>
+            <Button onClick={() => downloadBundle(previewUrls, name, ext)}>
+              <Text weight="bold" align="center">
+                Download
+              </Text>
+            </Button>
+          </div>
+        </div>
       </div>
     </div>
   );
 });
 
+const RESIZE_OPTIONS: { label: string; value: ResizeMode }[] = [
+  {
+    label: "Fit",
+    value: "contain",
+  },
+  {
+    label: "Cover",
+    value: "cover",
+  },
+  {
+    label: "Stretch",
+    value: "resize",
+  },
+];
+
 const LayerEditor = observer(
   ({ layer, onDelete }: { layer: LayerState; onDelete(id: string): void }) => {
     const { id, edits, name, dataUrl } = layer;
-    const { flipX, flipY } = edits;
+    const { resize, flipX, flipY } = edits;
 
     return (
       <div className="border border-slate-500 rounded p-6">
         <div className="flex w-full gap-6">
-          <div className="w-40 flex flex-col gap-2 items-center">
+          <div className="w-40 flex flex-col gap-2 items-center self-center">
             {dataUrl && <Image src={dataUrl} />}
             <span className="break-all">
               <Text size="xsmall">{name}</Text>
             </span>
           </div>
           <div className="grow grid grid-flow-row gap-4">
-            <Checkbox
-              value={flipX}
-              onChange={action((value) => (edits.flipX = !value))}
-              label="Flip X"
-            />
-            <Checkbox
-              value={flipY}
-              onChange={action((value) => (edits.flipY = !value))}
-              label="Flip Y"
-            />
+            <Field>
+              <Label>Resize mode</Label>
+              {/* <Select<ResizeMode>
+                value={resize}
+                options={RESIZE_OPTIONS}
+                onChange={action((value) => (edits.resize = value))}
+              /> */}
+              <RadioTabs<ResizeMode>
+                value={resize}
+                options={RESIZE_OPTIONS}
+                onChange={action((value) => (edits.resize = value))}
+              />
+            </Field>
+            <Field direction="col" align="start">
+              <Label>Flip X</Label>
+              <Checkbox
+                value={flipX}
+                onChange={action((value) => (edits.flipX = !value))}
+              />
+            </Field>
+            <Field direction="col" align="start">
+              <Label>Flip Y</Label>
+              <Checkbox
+                value={flipY}
+                onChange={action((value) => (edits.flipY = !value))}
+              />
+            </Field>
             <Button onClick={() => onDelete(id)}>
               <Text weight="bold" align="center">
                 Delete
