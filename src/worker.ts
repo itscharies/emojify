@@ -17,7 +17,7 @@ export type WorkerRequest =
   | ({ type: "layer" } & WorkerRequestLayer)
   | ({ type: "preview" } & WorkerRequestPreview);
 
-export type WorkerResponseLayer = { id: string; urls: string[] };
+export type WorkerResponseLayer = { id: string; url: string };
 export type WorkerResponsePreview = { urls: string[] };
 export type WorkerResponse =
   | ({ type: "layer" } & WorkerResponseLayer)
@@ -28,22 +28,36 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
     switch (e.data.type) {
       case "layer": {
         const { id, file, edits, slice } = e.data;
-        const images = await processImage(file, edits, slice);
-        const urls: string[] = await mergeLayers([images]);
+        const frames: Jimp[] = await processImage(file, edits, slice);
+        const url = await getDataUrl(frames);
         const res: WorkerResponse = {
           type: "layer",
           id,
-          urls,
+          url,
         };
         self.postMessage(res);
         break;
       }
       case "preview": {
         const { layers, slice } = e.data;
-        const layerImages: Jimp[][][] = await Promise.all(
+        const layerImages: Jimp[][] = await Promise.all(
           layers.map(({ file, edits }) => processImage(file, edits, slice)),
         );
-        const urls: string[] = await mergeLayers(layerImages);
+        const frames: Jimp[] = await mergeLayers(layerImages);
+        // const splitFrames = frames.map((frame) => splitFrame(frame, slice));
+        // console.log(splitFrames);
+        const parts = new Array(slice.x * slice.y)
+          .fill(undefined)
+          .map(() => new Array(frames.length).fill(undefined));
+        frames.forEach((frame, frameIndex) => {
+          const split = splitFrame(frame, slice);
+          split.forEach(
+            (part, partIndex) => (parts[partIndex][frameIndex] = part),
+          );
+        });
+        const urls = await Promise.all(
+          parts.map((frames) => getDataUrl(frames)),
+        );
         const res: WorkerResponse = {
           type: "preview",
           urls,
@@ -60,49 +74,49 @@ async function processImage(
   file: File,
   edits: Edits,
   slice: Slice,
-): Promise<Jimp[][]> {
+): Promise<Jimp[]> {
   const isGif = file.type === "image/gif";
   if (isGif) {
     const arrayBuffer = await file.arrayBuffer();
     const gif = await GifUtil.read(Buffer.from(arrayBuffer));
-    const gifs: Jimp[][] = [];
+    const gifs: Jimp[] = [];
     gif.frames.forEach((frame) => {
       const image: Jimp = GifUtil.copyAsJimp(jimp, frame);
       const edited = applyEdits(image, edits);
-      const frameParts = splitFrame(edited, slice, edits.resize);
-      gifs.push(frameParts);
+      gifs.push(resizeToSlice(edited, slice, edits.resize));
     });
     return gifs;
   } else {
     const arrayBuffer = await file.arrayBuffer();
     const image = await jimp.read(Buffer.from(arrayBuffer));
     const edited = applyEdits(image, edits);
-    const parts = splitFrame(edited, slice, edits.resize);
-    return [parts];
+    const resized = resizeToSlice(edited, slice, edits.resize);
+    return [resized];
   }
 }
 
 // Applies any edits to an image
 function applyEdits(image: Jimp, edits: Edits): Jimp {
   const { flipX, flipY } = edits;
-  const cloned: Jimp = image.clone();
-  cloned.flip(flipX, flipY);
-  return cloned;
+  image.flip(flipX, flipY);
+  return image;
+}
+
+function resizeToSlice(image: Jimp, { x, y }: Slice, mode: ResizeMode): Jimp {
+  const width = x * OUTPUT_SIZE;
+  const height = y * OUTPUT_SIZE;
+  return image[mode](width, height);
 }
 
 // Returns an array of emoji-sized, Jimp modifyable images from a given slice
-function splitFrame(image: Jimp, { x, y }: Slice, mode: ResizeMode): Jimp[] {
+function splitFrame(image: Jimp, { x, y }: Slice): Jimp[] {
   const images: Jimp[] = [];
-  const width = x * OUTPUT_SIZE;
-  const height = y * OUTPUT_SIZE;
-  const cloned = image.clone();
-  const resized = cloned[mode](width, height);
   for (let cy = 0; cy < y; cy++) {
     for (let cx = 0; cx < x; cx++) {
-      // Create a copy to modify and crop
-      const cloned: Jimp = resized.clone();
-      cloned.crop(cx * OUTPUT_SIZE, cy * OUTPUT_SIZE, OUTPUT_SIZE, OUTPUT_SIZE);
-      images.push(cloned);
+      const cropped = image
+        .clone()
+        .crop(cx * OUTPUT_SIZE, cy * OUTPUT_SIZE, OUTPUT_SIZE, OUTPUT_SIZE);
+      images.push(cropped);
     }
   }
   return images;
@@ -112,51 +126,40 @@ function splitFrame(image: Jimp, { x, y }: Slice, mode: ResizeMode): Jimp[] {
 // All parts have same length
 // Not all frames have same-length
 // - These are normalised to the longest frame length
-// Returns the dataUrl strings
-async function mergeLayers(layers: Jimp[][][]): Promise<string[]> {
-  const partsCount = layers[0][0].length;
+// Returns the layers
+async function mergeLayers(layers: Jimp[][]): Promise<Jimp[]> {
   const layersCount = layers.length;
   const layerlengths = layers.map((frames) => frames.length);
   const longestFramesCount: number = Math.max(...layerlengths);
-  // maps to Parts -> Frames(normalised) -> Layers(for frame)
-  const newParts: Jimp[][][] = new Array(partsCount)
+  // maps to Frames(normalised) -> Layers(for frame)
+  const framesWithLayers: Jimp[][] = new Array(longestFramesCount)
     .fill(undefined)
-    .map(() =>
-      new Array(longestFramesCount)
-        .fill(undefined)
-        .map(() => new Array(layersCount).fill(undefined)),
-    );
-  // Loop through the parts
-  for (let partIndex = 0; partIndex < partsCount; partIndex++) {
-    // Loop through the layers
-    for (let layerIndex = 0; layerIndex < layersCount; layerIndex++) {
-      for (let i = 0; i < longestFramesCount; i++) {
-        const frames = layers[layerIndex];
-        const frameIndex = i % frames.length;
-        newParts[partIndex][i][layerIndex] =
-          layers[layerIndex][frameIndex][partIndex].clone();
-      }
+    .map(() => new Array(layersCount).fill(undefined));
+  // Loop through the layers
+  for (let layerIndex = 0; layerIndex < layersCount; layerIndex++) {
+    for (let i = 0; i < longestFramesCount; i++) {
+      const frames = layers[layerIndex];
+      const frameIndex = i % frames.length;
+      framesWithLayers[i][layerIndex] = layers[layerIndex][frameIndex];
     }
   }
   // Map parts to data-urls
-  const parts: Promise<string>[] = newParts.map((frames) => {
-    const newFrames: Jimp[] = frames.map((layers) => composeImages(layers));
-    if (frames.length > 1) {
-      const codec = new GifCodec();
-      // TODO: preserve frame rate
-      const gifFrames = newFrames.map(({ bitmap }) => new GifFrame(bitmap));
-      // Ensure color isn't out of bounds
-      GifUtil.quantizeDekker(gifFrames, 256);
-      return codec
-        .encodeGif(gifFrames, { colorScope: 2 })
-        .then(
-          (gif) => "data:image/gif;base64," + gif.buffer.toString("base64"),
-        );
-    } else {
-      return newFrames[0].getBase64Async(jimp.AUTO);
-    }
-  });
-  return Promise.all(parts);
+  return framesWithLayers.map((layers) => composeImages(layers));
+}
+
+async function getDataUrl(frames: Jimp[]): Promise<string> {
+  if (frames.length > 1) {
+    const codec = new GifCodec();
+    // TODO: preserve frame rate
+    const gifFrames = frames.map(({ bitmap }) => new GifFrame(bitmap));
+    // Ensure color isn't out of bounds
+    GifUtil.quantizeDekker(gifFrames, 256);
+    return codec
+      .encodeGif(gifFrames, { colorScope: 2 })
+      .then((gif) => "data:image/gif;base64," + gif.buffer.toString("base64"));
+  } else {
+    return frames[0].getBase64Async(jimp.AUTO);
+  }
 }
 
 function composeImages(images: Jimp[]): Jimp {

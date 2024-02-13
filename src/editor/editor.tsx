@@ -38,7 +38,7 @@ export class EditorState {
   disposers: Map<string, () => void> = observable.map([], { deep: true });
   name: string = "";
   previewUrls: string[] = [];
-  slice: Slice = { x: 2, y: 2 };
+  slice: Slice = { x: 1, y: 1 };
   get isGif() {
     return Array.from(this.layers.values()).some(
       (layer) => layer.file.type === "image/gif",
@@ -65,14 +65,14 @@ export class LayerState {
   name: string;
   edits: Edits;
   file: File;
-  dataUrls: string[];
+  dataUrl?: string;
 
   constructor({ id, file, name }: { id: string; file: File; name: string }) {
     this.id = id;
     this.file = file;
     this.name = name;
     this.edits = new Edits();
-    this.dataUrls = [];
+    this.dataUrl = undefined;
     makeAutoObservable(this, undefined);
   }
 }
@@ -93,11 +93,11 @@ const Editor = observer(() => {
 
   const onRenderLayer = useCallback(
     (data: WorkerResponseLayer) => {
-      const { id, urls } = data;
+      const { id, url } = data;
       const layer = store.layers.get(id);
       if (layer) {
         runInAction(() => {
-          layer.dataUrls = urls;
+          layer.dataUrl = url;
         });
       }
     },
@@ -237,14 +237,7 @@ const Editor = observer(() => {
     <div className="flex flex-col h-full gap-6">
       <div className="grow flex flex-col gap-6">
         {Array.from(layers.entries()).map(([id, layer]) => {
-          return (
-            <LayerEditor
-              key={id}
-              slice={slice}
-              layer={layer}
-              onDelete={onDelete}
-            />
-          );
+          return <LayerEditor key={id} layer={layer} onDelete={onDelete} />;
         })}
         <div>
           <FileInput
@@ -278,23 +271,15 @@ const Editor = observer(() => {
 });
 
 const LayerEditor = observer(
-  ({
-    slice,
-    layer,
-    onDelete,
-  }: {
-    slice: Slice;
-    layer: LayerState;
-    onDelete(id: string): void;
-  }) => {
-    const { id, edits, name, dataUrls } = layer;
+  ({ layer, onDelete }: { layer: LayerState; onDelete(id: string): void }) => {
+    const { id, edits, name, dataUrl } = layer;
     const { flipX, flipY } = edits;
 
     return (
       <div className="border border-slate-500 rounded p-6">
         <div className="flex w-full gap-6">
           <div className="w-40 flex flex-col gap-2 items-center">
-            {dataUrls && <EmojiPreview images={dataUrls} slice={slice} />}
+            {dataUrl && <Image src={dataUrl} />}
             <span className="break-all">
               <Text size="xsmall">{name}</Text>
             </span>
