@@ -7,11 +7,17 @@ export type WorkerRequestLayer = {
   id: string;
   file: File;
   edits: Edits;
-  slice: Slice;
+  settings: {
+    slice: Slice;
+    speed: number;
+  };
 };
 export type WorkerRequestPreview = {
   layers: { file: File; edits: Edits }[];
-  slice: Slice;
+  settings: {
+    slice: Slice;
+    speed: number;
+  };
 };
 export type WorkerRequest =
   | ({ type: "layer" } & WorkerRequestLayer)
@@ -27,9 +33,14 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
   if (e.data) {
     switch (e.data.type) {
       case "layer": {
-        const { id, file, edits, slice } = e.data;
+        const {
+          id,
+          file,
+          edits,
+          settings: { slice, speed },
+        } = e.data;
         const frames: Jimp[] = await processImage(file, edits, slice);
-        const url = await getDataUrl(frames);
+        const url = await getDataUrl(frames, speed);
         const res: WorkerResponse = {
           type: "layer",
           id,
@@ -39,7 +50,10 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
         break;
       }
       case "preview": {
-        const { layers, slice } = e.data;
+        const {
+          layers,
+          settings: { slice, speed },
+        } = e.data;
         const layerImages: Jimp[][] = await Promise.all(
           layers.map(({ file, edits }) => processImage(file, edits, slice)),
         );
@@ -56,7 +70,7 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
           );
         });
         const urls = await Promise.all(
-          parts.map((frames) => getDataUrl(frames)),
+          parts.map((frames) => getDataUrl(frames, speed)),
         );
         const res: WorkerResponse = {
           type: "preview",
@@ -147,11 +161,15 @@ async function mergeLayers(layers: Jimp[][]): Promise<Jimp[]> {
   return framesWithLayers.map((layers) => composeImages(layers));
 }
 
-async function getDataUrl(frames: Jimp[]): Promise<string> {
+async function getDataUrl(frames: Jimp[], speed: number): Promise<string> {
   if (frames.length > 1) {
     const codec = new GifCodec();
     // TODO: preserve frame rate
-    const gifFrames = frames.map(({ bitmap }) => new GifFrame(bitmap));
+    const gifFrames = frames.map(({ bitmap }) => {
+      const frame = new GifFrame(bitmap);
+      frame.delayCentisecs = speed;
+      return frame;
+    });
     // Ensure color isn't out of bounds
     GifUtil.quantizeDekker(gifFrames, 256);
     return codec

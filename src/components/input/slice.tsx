@@ -15,7 +15,7 @@ export function Slice({
   const id1 = useId();
   const id2 = useId();
   const classes =
-    "w-min min-w-40 h-4 grid content-center items-center px-2 py-3 border border-slate-100 rounded hover:cursor-pointer";
+    "w-min min-w-10 h-4 grid content-center items-center px-2 py-3 border border-slate-100 rounded hover:cursor-pointer";
   return (
     <div className="grid grid-flow-row gap-1 w-fit items-center">
       <Text weight="bold">Slices:</Text>

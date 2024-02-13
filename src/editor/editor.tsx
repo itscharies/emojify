@@ -14,6 +14,7 @@ import { Text } from "../components/typography/text";
 import { Button } from "../components/input/button";
 import { FileInput } from "../components/input/file";
 import { Checkbox } from "../components/input/checkbox";
+import { Number } from "../components/input/number";
 import { Image } from "../components/image";
 import { Divider } from "../components/divider";
 import { IdGenerator } from "../id_generator";
@@ -39,6 +40,7 @@ export class EditorState {
   name: string = "";
   previewUrls: string[] = [];
   slice: Slice = { x: 1, y: 1 };
+  speed: number = 2;
   get isGif() {
     return Array.from(this.layers.values()).some(
       (layer) => layer.file.type === "image/gif",
@@ -125,11 +127,14 @@ const Editor = observer(() => {
 
   useEffect(() => {
     const dispose = autorun(() => {
-      const { slice, layers, hasLayers } = store;
+      const { slice, speed, layers, hasLayers } = store;
       if (hasLayers) {
         previewWorker.renderPreview({
           layers: Array.from(layers.values()).map((layer) => toJS(layer)),
-          slice: toJS(slice),
+          settings: {
+            slice: toJS(slice),
+            speed,
+          },
         });
       }
     });
@@ -150,12 +155,15 @@ const Editor = observer(() => {
         (store.name = files[0].name.split(".").shift() || "emoji");
       const dispose = autorun(() => {
         const { flipX, flipY, resize } = layer.edits;
-        const { x, y } = store.slice;
+        const { slice, speed } = store;
         layerWorker.renderLayer({
           id,
           file,
           edits: { flipX, flipY, resize },
-          slice: { x, y },
+          settings: {
+            slice: toJS(slice),
+            speed,
+          },
         });
       });
       store.disposers.set("id", dispose);
@@ -213,9 +221,13 @@ const Editor = observer(() => {
     );
   }
 
-  const { layers, name, previewUrls, slice, isGif } = store;
+  const { layers, name, previewUrls, slice, speed, isGif } = store;
   const { x, y } = slice;
   const ext = isGif ? ".gif" : ".png";
+
+  const onChangeSpeed = action((speed) => {
+    store.speed = speed;
+  });
 
   const onChangeSliceX = action((x) => {
     store.slice = {
@@ -252,7 +264,12 @@ const Editor = observer(() => {
       </div>
       <Divider />
       <div className="grid gap-6 grid-flow-col justify-between items-center">
-        {previewUrls && <EmojiPreview images={previewUrls} slice={slice} />}
+        <div className="min-w-10">
+          {previewUrls && <EmojiPreview images={previewUrls} slice={slice} />}
+        </div>
+        {isGif && (
+          <Number value={speed} onChange={onChangeSpeed} label="Speed" />
+        )}
         <Slice
           valueX={x}
           valueY={y}
