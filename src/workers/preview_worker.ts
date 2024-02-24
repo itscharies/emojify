@@ -22,7 +22,10 @@ self.onmessage = async (e: MessageEvent<PreviewWorkerRequest>) => {
     const layerImages: Jimp[][] = await Promise.all(
       layers.map(({ file, edits }) => processImage(file, edits, slice)),
     );
-    const frames: Jimp[] = await mergeLayers(layerImages);
+    const frames: Jimp[] = await mergeLayers(
+      layerImages,
+      layers.map((layer) => layer.edits.blendMode),
+    );
     // const splitFrames = frames.map((frame) => splitFrame(frame, slice));
     // console.log(splitFrames);
     const parts = new Array(slice.x * slice.y)

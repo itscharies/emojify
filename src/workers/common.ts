@@ -1,7 +1,13 @@
 import type Jimp from "jimp";
 import jimp from "jimp/es";
 import { GifCodec, GifFrame, GifUtil } from "gifwrap";
-import { Edits, OUTPUT_SIZE, ResizeMode, Slice } from "../editor/editor";
+import {
+  BlendMode,
+  Edits,
+  OUTPUT_SIZE,
+  ResizeMode,
+  Slice,
+} from "../editor/editor";
 
 // Proces the image, returns a list of frames[] which is a list of parts[]
 export async function processImage(
@@ -31,10 +37,12 @@ export async function processImage(
 
 // Applies any edits to an image
 export function applyEdits(image: Jimp, edits: Edits): Jimp {
-  const { flipX, flipY, brightness, contrast } = edits;
+  const { flipX, flipY, brightness, contrast, invert, grayscale } = edits;
   image.flip(flipX, flipY);
   image.contrast(contrast / 100);
   image.brightness(brightness / 100);
+  invert && image.invert();
+  grayscale && image.grayscale();
   return image;
 }
 
@@ -67,7 +75,10 @@ export function splitFrame(image: Jimp, { x, y }: Slice): Jimp[] {
 // Not all frames have same-length
 // - These are normalised to the longest frame length
 // Returns the layers
-export async function mergeLayers(layers: Jimp[][]): Promise<Jimp[]> {
+export async function mergeLayers(
+  layers: Jimp[][],
+  layerBlendModes: BlendMode[],
+): Promise<Jimp[]> {
   const layersCount = layers.length;
   const layerlengths = layers.map((frames) => frames.length);
   const longestFramesCount: number = Math.max(...layerlengths);
@@ -84,7 +95,9 @@ export async function mergeLayers(layers: Jimp[][]): Promise<Jimp[]> {
     }
   }
   // Map parts to data-urls
-  return framesWithLayers.map((layers) => composeImages(layers));
+  return framesWithLayers.map((layers) =>
+    composeImages(layers, layerBlendModes),
+  );
 }
 
 export async function getDataUrl(
@@ -113,14 +126,48 @@ export async function getDataUrl(
   }
 }
 
-export function composeImages(images: Jimp[]): Jimp {
+export function composeImages(
+  images: Jimp[],
+  layerBlendModes: BlendMode[],
+): Jimp {
   let prevImage;
-  for (const image of images) {
+  for (let i = 0; i < images.length; i++) {
     if (!prevImage) {
-      prevImage = image.clone();
+      prevImage = images[i].clone();
       continue;
     }
-    prevImage.composite(image, 0, 0);
+    if (layerBlendModes[i] === "mask") {
+      prevImage.mask(images[i]);
+    } else {
+      prevImage.composite(images[i], 0, 0, {
+        mode: getBlendMode(layerBlendModes[i]),
+      });
+    }
   }
   return prevImage;
 }
+
+const getBlendMode = (blendMode: BlendMode) => {
+  switch (blendMode) {
+    case "normal":
+      return jimp.BLEND_SOURCE_OVER;
+    case "multiply":
+      return jimp.BLEND_MULTIPLY;
+    case "add":
+      return jimp.BLEND_ADD;
+    case "screen":
+      return jimp.BLEND_SCREEN;
+    case "overlay":
+      return jimp.BLEND_OVERLAY;
+    case "darken":
+      return jimp.BLEND_DARKEN;
+    case "lighten":
+      return jimp.BLEND_LIGHTEN;
+    case "hardlight":
+      return jimp.BLEND_HARDLIGHT;
+    case "difference":
+      return jimp.BLEND_DIFFERENCE;
+    case "exclusion":
+      return jimp.BLEND_EXCLUSION;
+  }
+};

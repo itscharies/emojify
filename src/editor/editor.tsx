@@ -1,4 +1,3 @@
-/* eslint-disable prettier/prettier */
 import React, { useCallback, useEffect, useMemo } from "react";
 import { observer, useLocalObservable } from "mobx-react-lite";
 import {
@@ -28,11 +27,11 @@ import { Range } from "../components/input/range";
 import { IdGenerator } from "../base/id_generator";
 import {
   LayerWorkerRequest,
-  LayerWorkerResponse
+  LayerWorkerResponse,
 } from "../workers/layer_worker";
 import {
   PreviewWorkerRequest,
-  PreviewWorkerResponse
+  PreviewWorkerResponse,
 } from "../workers/preview_worker";
 import classNames from "classnames";
 import { debounce } from "../base/debounce";
@@ -48,7 +47,7 @@ export class EditorState {
   previewUrls: string[] = [];
   slice: Slice = { x: 1, y: 1 };
   speed: number = 5;
-  quality: number | undefined;
+  quality: number | undefined = undefined;
   get isGif() {
     return Array.from(this.layers.values()).some(
       (layer) => layer.file.type === "image/gif",
@@ -61,9 +60,11 @@ export class EditorState {
     return `${this.slice.x}${this.slice.y}${this.speed}${this.quality}`;
   }
   get previewHash(): string {
-    return Array.from(this.layers.values())
-      .map((layer) => layer.editsHash)
-      .join("") + this.editsHash;
+    return (
+      Array.from(this.layers.values())
+        .map((layer) => layer.editsHash)
+        .join("") + this.editsHash
+    );
   }
   constructor() {
     makeAutoObservable(this);
@@ -77,8 +78,19 @@ export class LayerState {
   file: File;
   dataUrl?: string;
   get editsHash() {
-    const { flipX, flipY, brightness, contrast, resize } = this.edits;
-    return `${this.id}${this.name}${flipX}${flipY}${brightness}${contrast}${resize}`;
+    const {
+      flipX,
+      flipY,
+      brightness,
+      contrast,
+      resize,
+      alignX,
+      alignY,
+      blendMode,
+      invert,
+      grayscale,
+    } = this.edits;
+    return `${this.id}${this.name}${flipX}${flipY}${brightness}${contrast}${resize}${alignX}${alignY}${blendMode}${invert}${grayscale}`;
   }
   constructor({ id, file, name }: { id: string; file: File; name: string }) {
     this.id = id;
@@ -91,16 +103,81 @@ export class LayerState {
 }
 
 export type ResizeMode = "resize" | "cover" | "contain";
+export type BlendMode =
+  | "normal"
+  | "multiply"
+  | "add"
+  | "screen"
+  | "overlay"
+  | "darken"
+  | "lighten"
+  | "hardlight"
+  | "difference"
+  | "exclusion"
+  | "mask";
+export type AlignMode = "start" | "center" | "end";
 export class Edits {
   resize: ResizeMode = "contain";
   flipX: boolean = false;
   flipY: boolean = false;
   brightness: number = 0;
   contrast: number = 0;
+  alignX: AlignMode = "center";
+  alignY: AlignMode = "center";
+  blendMode: BlendMode = "normal";
+  invert: boolean = false;
+  grayscale: boolean = false;
   constructor() {
     makeAutoObservable(this);
   }
 }
+
+const BLEND_OPTIONS: { label: string; value: BlendMode }[] = [
+  {
+    label: "Normal",
+    value: "normal",
+  },
+  {
+    label: "Mask",
+    value: "mask",
+  },
+  {
+    label: "Multiply",
+    value: "multiply",
+  },
+  {
+    label: "Add",
+    value: "add",
+  },
+  {
+    label: "Screen",
+    value: "screen",
+  },
+  {
+    label: "Overlay",
+    value: "overlay",
+  },
+  {
+    label: "Darken",
+    value: "darken",
+  },
+  {
+    label: "Lighten",
+    value: "lighten",
+  },
+  {
+    label: "Hardlight",
+    value: "hardlight",
+  },
+  {
+    label: "Difference",
+    value: "difference",
+  },
+  {
+    label: "Exclusion",
+    value: "exclusion",
+  },
+];
 
 const RESIZE_OPTIONS: { label: string; value: ResizeMode }[] = [
   {
@@ -153,14 +230,8 @@ const Editor = observer(() => {
     [store],
   );
 
-  const layerWorker = useMemo(
-    () => new LayerWorker(onRenderLayer),
-    [],
-  );
-  const previewWorker = useMemo(
-    () => new PreviewWorker(),
-    [],
-  );
+  const layerWorker = useMemo(() => new LayerWorker(onRenderLayer), []);
+  const previewWorker = useMemo(() => new PreviewWorker(), []);
 
   const debouncedPreview = debounce(async () => {
     const { layers, slice, speed, quality } = store;
@@ -200,12 +271,34 @@ const Editor = observer(() => {
       store.name === "" &&
         (store.name = files[0].name.split(".").shift() || "emoji");
       const debouncedLayerRender = debounce(() => {
-        const { flipX, flipY, resize, brightness, contrast } = layer.edits;
+        const {
+          flipX,
+          flipY,
+          resize,
+          brightness,
+          contrast,
+          alignX,
+          alignY,
+          blendMode,
+          invert,
+          grayscale,
+        } = layer.edits;
         const { slice, speed, quality } = store;
         layerWorker.render({
           id,
           file,
-          edits: { flipX, flipY, resize, brightness, contrast },
+          edits: {
+            flipX,
+            flipY,
+            resize,
+            brightness,
+            contrast,
+            alignX,
+            alignY,
+            blendMode,
+            invert,
+            grayscale,
+          },
           settings: {
             slice: toJS(slice),
             speed,
@@ -337,7 +430,10 @@ const Editor = observer(() => {
         <div className="w-40 flex flex-col gap-2 items-center self-center">
           {previewUrls && <EmojiPreview images={previewUrls} slice={slice} />}
           <span className="break-all">
-            <Text size="xsmall">(Largest image: {Math.max(...previewUrls.map((url) => getImageSizeInKB(url)))}KB)</Text>
+            <Text size="xsmall">
+              (Largest image:{" "}
+              {Math.max(...previewUrls.map((url) => getImageSizeInKB(url)))}KB)
+            </Text>
           </span>
         </div>
         <div className="grow grid gap-6 grid-flow-row justify-self-stretch items-center">
@@ -400,7 +496,16 @@ const Editor = observer(() => {
 const LayerEditor = observer(
   ({ layer, onDelete }: { layer: LayerState; onDelete(id: string): void }) => {
     const { id, edits, name, dataUrl } = layer;
-    const { resize, flipX, flipY, brightness, contrast } = edits;
+    const {
+      resize,
+      flipX,
+      flipY,
+      brightness,
+      contrast,
+      blendMode,
+      invert,
+      grayscale,
+    } = edits;
 
     return (
       <div className="border border-slate-500 rounded p-6">
@@ -440,7 +545,7 @@ const LayerEditor = observer(
                 min={-100}
                 max={100}
                 value={brightness}
-                onChange={action((value) => edits.brightness = value)}
+                onChange={action((value) => (edits.brightness = value))}
               />
             </Field>
             <Field>
@@ -449,7 +554,29 @@ const LayerEditor = observer(
                 min={-100}
                 max={100}
                 value={contrast}
-                onChange={action((value) => edits.contrast = value)}
+                onChange={action((value) => (edits.contrast = value))}
+              />
+            </Field>
+            <Field direction="col" align="start">
+              <Label>Invert</Label>
+              <Checkbox
+                value={invert}
+                onChange={action((value) => (edits.invert = !value))}
+              />
+            </Field>
+            <Field direction="col" align="start">
+              <Label>Grayscale</Label>
+              <Checkbox
+                value={grayscale}
+                onChange={action((value) => (edits.grayscale = !value))}
+              />
+            </Field>
+            <Field>
+              <Label>Blend mode</Label>
+              <Select
+                options={BLEND_OPTIONS}
+                value={blendMode}
+                onChange={action((value) => (edits.blendMode = value))}
               />
             </Field>
             <Button onClick={() => onDelete(id)}>
@@ -528,12 +655,13 @@ interface ImageWorker {
 
 class LayerWorker implements ImageWorker {
   private worker: Worker;
-  constructor(
-    handler: (data: LayerWorkerResponse) => void,
-  ) {
-    this.worker = new Worker(new URL("../workers/layer_worker.ts", import.meta.url), {
-      type: "module",
-    });
+  constructor(handler: (data: LayerWorkerResponse) => void) {
+    this.worker = new Worker(
+      new URL("../workers/layer_worker.ts", import.meta.url),
+      {
+        type: "module",
+      },
+    );
     this.worker.onmessage = (e: MessageEvent<LayerWorkerResponse>) => {
       if (!e.data) {
         throw new Error("oops");
@@ -558,9 +686,12 @@ class PreviewWorker {
     if (this.worker) {
       this.destroy();
     }
-    this.worker = new Worker(new URL("../workers/preview_worker.ts", import.meta.url), {
-      type: "module",
-    });
+    this.worker = new Worker(
+      new URL("../workers/preview_worker.ts", import.meta.url),
+      {
+        type: "module",
+      },
+    );
     this.worker.postMessage(toJS(data));
     return new Promise((resolve) => {
       if (!this.worker) {
@@ -573,7 +704,7 @@ class PreviewWorker {
         this.destroy();
         resolve(e.data);
       };
-    })
+    });
   }
 
   destroy() {
