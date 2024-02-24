@@ -24,6 +24,7 @@ import { Field } from "../components/input/field";
 import { Label } from "../components/input/label";
 import { Select } from "../components/input/select";
 import { RadioTabs } from "../components/input/radio_tabs";
+import { Range } from "../components/input/range";
 import { IdGenerator } from "../base/id_generator";
 import {
   LayerWorkerRequest,
@@ -76,7 +77,8 @@ export class LayerState {
   file: File;
   dataUrl?: string;
   get editsHash() {
-    return this.id + this.name + JSON.stringify(this.edits);
+    const { flipX, flipY, brightness, contrast, resize } = this.edits;
+    return `${this.id}${this.name}${flipX}${flipY}${brightness}${contrast}${resize}`;
   }
   constructor({ id, file, name }: { id: string; file: File; name: string }) {
     this.id = id;
@@ -151,34 +153,27 @@ const Editor = observer(() => {
     [store],
   );
 
-  const onRenderPreview = useCallback(
-    (data: PreviewWorkerResponse) => {
-      const { urls } = data;
-      runInAction(() => {
-        store.previewUrls = urls;
-      });
-    },
-    [store],
-  );
-
   const layerWorker = useMemo(
     () => new LayerWorker(onRenderLayer),
     [],
   );
   const previewWorker = useMemo(
-    () => new PreviewWorker(onRenderPreview),
+    () => new PreviewWorker(),
     [],
   );
 
-  const debouncedPreview = debounce(() => {
+  const debouncedPreview = debounce(async () => {
     const { layers, slice, speed, quality } = store;
-    previewWorker.render({
+    const { urls } = await previewWorker.render({
       layers: Array.from(layers.values()).map((layer) => toJS(layer)),
       settings: {
         slice: toJS(slice),
         speed,
         quality,
       },
+    });
+    runInAction(() => {
+      store.previewUrls = urls;
     });
   }, 500);
   useEffect(() => {
@@ -405,7 +400,7 @@ const Editor = observer(() => {
 const LayerEditor = observer(
   ({ layer, onDelete }: { layer: LayerState; onDelete(id: string): void }) => {
     const { id, edits, name, dataUrl } = layer;
-    const { resize, flipX, flipY } = edits;
+    const { resize, flipX, flipY, brightness, contrast } = edits;
 
     return (
       <div className="border border-slate-500 rounded p-6">
@@ -419,11 +414,6 @@ const LayerEditor = observer(
           <div className="grow grid grid-flow-row gap-4">
             <Field>
               <Label>Resize mode</Label>
-              {/* <Select<ResizeMode>
-                value={resize}
-                options={RESIZE_OPTIONS}
-                onChange={action((value) => (edits.resize = value))}
-              /> */}
               <RadioTabs<ResizeMode>
                 value={resize}
                 options={RESIZE_OPTIONS}
@@ -442,6 +432,24 @@ const LayerEditor = observer(
               <Checkbox
                 value={flipY}
                 onChange={action((value) => (edits.flipY = !value))}
+              />
+            </Field>
+            <Field>
+              <Label>Brightness</Label>
+              <Range
+                min={-100}
+                max={100}
+                value={brightness}
+                onChange={action((value) => edits.brightness = value)}
+              />
+            </Field>
+            <Field>
+              <Label>Contrast</Label>
+              <Range
+                min={-100}
+                max={100}
+                value={contrast}
+                onChange={action((value) => edits.contrast = value)}
               />
             </Field>
             <Button onClick={() => onDelete(id)}>
@@ -544,27 +552,32 @@ class LayerWorker implements ImageWorker {
 }
 
 class PreviewWorker {
-  private worker: Worker;
-  constructor(
-    handler: (data: PreviewWorkerResponse) => void,
-  ) {
+  private worker: Worker | undefined;
+
+  async render(data: PreviewWorkerRequest): Promise<PreviewWorkerResponse> {
+    if (this.worker) {
+      this.destroy();
+    }
     this.worker = new Worker(new URL("../workers/preview_worker.ts", import.meta.url), {
       type: "module",
     });
-    this.worker.onmessage = (e: MessageEvent<PreviewWorkerResponse>) => {
-      if (!e.data) {
-        throw new Error("oops");
-      }
-      handler(e.data);
-    };
-  }
-
-  render(data: PreviewWorkerRequest) {
     this.worker.postMessage(toJS(data));
+    return new Promise((resolve) => {
+      if (!this.worker) {
+        return;
+      }
+      this.worker.onmessage = (e: MessageEvent<PreviewWorkerResponse>) => {
+        if (!e.data) {
+          throw new Error("oops");
+        }
+        this.destroy();
+        resolve(e.data);
+      };
+    })
   }
 
   destroy() {
-    this.worker.terminate();
+    this.worker?.terminate();
   }
 }
 

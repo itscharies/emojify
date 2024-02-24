@@ -31,8 +31,10 @@ export async function processImage(
 
 // Applies any edits to an image
 export function applyEdits(image: Jimp, edits: Edits): Jimp {
-  const { flipX, flipY } = edits;
+  const { flipX, flipY, brightness, contrast } = edits;
   image.flip(flipX, flipY);
+  image.contrast(contrast / 100);
+  image.brightness(brightness / 100);
   return image;
 }
 
