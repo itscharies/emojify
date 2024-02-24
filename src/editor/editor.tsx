@@ -581,7 +581,7 @@ const LayerEditor = observer(
             </Field>
             <Button onClick={() => onDelete(id)}>
               <Text weight="bold" align="center">
-                Delete
+                Delete layer
               </Text>
             </Button>
           </div>
