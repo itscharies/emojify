@@ -1,89 +1,10 @@
 import type Jimp from "jimp";
 import jimp from "jimp/es";
 import { GifCodec, GifFrame, GifUtil } from "gifwrap";
-import { Edits, OUTPUT_SIZE, ResizeMode, Slice } from "./editor/editor";
-
-type Settings = {
-  slice: Slice;
-  speed: number;
-  quality?: number;
-};
-export type WorkerRequestLayer = {
-  id: string;
-  file: File;
-  edits: Edits;
-  settings: Settings;
-};
-export type WorkerRequestPreview = {
-  layers: { file: File; edits: Edits }[];
-  settings: Settings;
-};
-export type WorkerRequest =
-  | ({ type: "layer" } & WorkerRequestLayer)
-  | ({ type: "preview" } & WorkerRequestPreview);
-
-export type WorkerResponseLayer = { id: string; url: string };
-export type WorkerResponsePreview = { urls: string[] };
-export type WorkerResponse =
-  | ({ type: "layer" } & WorkerResponseLayer)
-  | ({ type: "preview" } & WorkerResponsePreview);
-
-self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
-  if (e.data) {
-    switch (e.data.type) {
-      case "layer": {
-        const {
-          id,
-          file,
-          edits,
-          settings: { slice, speed, quality },
-        } = e.data;
-        const frames: Jimp[] = await processImage(file, edits, slice);
-        const url = await getDataUrl(frames, speed, quality);
-        const res: WorkerResponse = {
-          type: "layer",
-          id,
-          url,
-        };
-        self.postMessage(res);
-        break;
-      }
-      case "preview": {
-        const {
-          layers,
-          settings: { slice, speed, quality },
-        } = e.data;
-        const layerImages: Jimp[][] = await Promise.all(
-          layers.map(({ file, edits }) => processImage(file, edits, slice)),
-        );
-        const frames: Jimp[] = await mergeLayers(layerImages);
-        // const splitFrames = frames.map((frame) => splitFrame(frame, slice));
-        // console.log(splitFrames);
-        const parts = new Array(slice.x * slice.y)
-          .fill(undefined)
-          .map(() => new Array(frames.length).fill(undefined));
-        frames.forEach((frame, frameIndex) => {
-          const split = splitFrame(frame, slice);
-          split.forEach(
-            (part, partIndex) => (parts[partIndex][frameIndex] = part),
-          );
-        });
-        const urls = await Promise.all(
-          parts.map((frames) => getDataUrl(frames, speed, quality)),
-        );
-        const res: WorkerResponse = {
-          type: "preview",
-          urls,
-        };
-        self.postMessage(res);
-        break;
-      }
-    }
-  }
-};
+import { Edits, OUTPUT_SIZE, ResizeMode, Slice } from "../editor/editor";
 
 // Proces the image, returns a list of frames[] which is a list of parts[]
-async function processImage(
+export async function processImage(
   file: File,
   edits: Edits,
   slice: Slice,
@@ -109,20 +30,24 @@ async function processImage(
 }
 
 // Applies any edits to an image
-function applyEdits(image: Jimp, edits: Edits): Jimp {
+export function applyEdits(image: Jimp, edits: Edits): Jimp {
   const { flipX, flipY } = edits;
   image.flip(flipX, flipY);
   return image;
 }
 
-function resizeToSlice(image: Jimp, { x, y }: Slice, mode: ResizeMode): Jimp {
+export function resizeToSlice(
+  image: Jimp,
+  { x, y }: Slice,
+  mode: ResizeMode,
+): Jimp {
   const width = x * OUTPUT_SIZE;
   const height = y * OUTPUT_SIZE;
   return image[mode](width, height);
 }
 
 // Returns an array of emoji-sized, Jimp modifyable images from a given slice
-function splitFrame(image: Jimp, { x, y }: Slice): Jimp[] {
+export function splitFrame(image: Jimp, { x, y }: Slice): Jimp[] {
   const images: Jimp[] = [];
   for (let cy = 0; cy < y; cy++) {
     for (let cx = 0; cx < x; cx++) {
@@ -140,7 +65,7 @@ function splitFrame(image: Jimp, { x, y }: Slice): Jimp[] {
 // Not all frames have same-length
 // - These are normalised to the longest frame length
 // Returns the layers
-async function mergeLayers(layers: Jimp[][]): Promise<Jimp[]> {
+export async function mergeLayers(layers: Jimp[][]): Promise<Jimp[]> {
   const layersCount = layers.length;
   const layerlengths = layers.map((frames) => frames.length);
   const longestFramesCount: number = Math.max(...layerlengths);
@@ -160,7 +85,7 @@ async function mergeLayers(layers: Jimp[][]): Promise<Jimp[]> {
   return framesWithLayers.map((layers) => composeImages(layers));
 }
 
-async function getDataUrl(
+export async function getDataUrl(
   frames: Jimp[],
   speed: number,
   quality?: number,
@@ -186,7 +111,7 @@ async function getDataUrl(
   }
 }
 
-function composeImages(images: Jimp[]): Jimp {
+export function composeImages(images: Jimp[]): Jimp {
   let prevImage;
   for (const image of images) {
     if (!prevImage) {
@@ -197,5 +122,3 @@ function composeImages(images: Jimp[]): Jimp {
   }
   return prevImage;
 }
-
-export {};

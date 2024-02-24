@@ -24,16 +24,17 @@ import { Field } from "../components/input/field";
 import { Label } from "../components/input/label";
 import { Select } from "../components/input/select";
 import { RadioTabs } from "../components/input/radio_tabs";
-import { IdGenerator } from "../id_generator";
+import { IdGenerator } from "../base/id_generator";
 import {
-  WorkerRequest,
-  WorkerRequestLayer,
-  WorkerRequestPreview,
-  WorkerResponse,
-  WorkerResponseLayer,
-  WorkerResponsePreview,
-} from "../worker";
+  LayerWorkerRequest,
+  LayerWorkerResponse
+} from "../workers/layer_worker";
+import {
+  PreviewWorkerRequest,
+  PreviewWorkerResponse
+} from "../workers/preview_worker";
 import classNames from "classnames";
+import { debounce } from "../base/debounce";
 
 export const OUTPUT_SIZE = 64;
 
@@ -45,8 +46,8 @@ export class EditorState {
   name: string = "";
   previewUrls: string[] = [];
   slice: Slice = { x: 1, y: 1 };
-  speed: number = 2;
-  quality: number | undefined = 8;
+  speed: number = 5;
+  quality: number | undefined;
   get isGif() {
     return Array.from(this.layers.values()).some(
       (layer) => layer.file.type === "image/gif",
@@ -55,13 +56,13 @@ export class EditorState {
   get hasLayers() {
     return this.layers.size > 0;
   }
-  get editHash(): string {
-    return Array.from(this.layers.values())
-      .map((layer) => JSON.stringify(layer.edits))
-      .join(",");
+  get editsHash() {
+    return `${this.slice.x}${this.slice.y}${this.speed}${this.quality}`;
   }
-  get previewHash() {
-    return this.previewUrls.join("-");
+  get previewHash(): string {
+    return Array.from(this.layers.values())
+      .map((layer) => layer.editsHash)
+      .join("") + this.editsHash;
   }
   constructor() {
     makeAutoObservable(this);
@@ -74,7 +75,9 @@ export class LayerState {
   edits: Edits;
   file: File;
   dataUrl?: string;
-
+  get editsHash() {
+    return this.id + this.name + JSON.stringify(this.edits);
+  }
   constructor({ id, file, name }: { id: string; file: File; name: string }) {
     this.id = id;
     this.file = file;
@@ -90,6 +93,8 @@ export class Edits {
   resize: ResizeMode = "contain";
   flipX: boolean = false;
   flipY: boolean = false;
+  brightness: number = 0;
+  contrast: number = 0;
   constructor() {
     makeAutoObservable(this);
   }
@@ -134,7 +139,7 @@ const Editor = observer(() => {
   const store = useLocalObservable(() => new EditorState());
 
   const onRenderLayer = useCallback(
-    (data: WorkerResponseLayer) => {
+    (data: LayerWorkerResponse) => {
       const { id, url } = data;
       const layer = store.layers.get(id);
       if (layer) {
@@ -147,7 +152,7 @@ const Editor = observer(() => {
   );
 
   const onRenderPreview = useCallback(
-    (data: WorkerResponsePreview) => {
+    (data: PreviewWorkerResponse) => {
       const { urls } = data;
       runInAction(() => {
         store.previewUrls = urls;
@@ -157,31 +162,35 @@ const Editor = observer(() => {
   );
 
   const layerWorker = useMemo(
-    () => new ImageWorker(onRenderLayer, onRenderPreview),
+    () => new LayerWorker(onRenderLayer),
     [],
   );
   const previewWorker = useMemo(
-    () => new ImageWorker(onRenderLayer, onRenderPreview),
+    () => new PreviewWorker(onRenderPreview),
     [],
   );
 
+  const debouncedPreview = debounce(() => {
+    const { layers, slice, speed, quality } = store;
+    previewWorker.render({
+      layers: Array.from(layers.values()).map((layer) => toJS(layer)),
+      settings: {
+        slice: toJS(slice),
+        speed,
+        quality,
+      },
+    });
+  }, 500);
   useEffect(() => {
     const dispose = autorun(() => {
-      const { slice, speed, quality, layers, hasLayers } = store;
-      if (hasLayers) {
-        //TODO: Debounce
-        previewWorker.renderPreview({
-          layers: Array.from(layers.values()).map((layer) => toJS(layer)),
-          settings: {
-            slice: toJS(slice),
-            speed,
-            quality,
-          },
-        });
+      // trigger autorun
+      const { hasLayers, previewHash } = store;
+      if (hasLayers && previewHash) {
+        debouncedPreview();
       }
     });
     return () => dispose();
-  }, [store.previewHash]);
+  }, [store.previewHash, store.hasLayers]);
 
   const uploadFile = action((files: FileList | undefined) => {
     if (!files) {
@@ -195,20 +204,26 @@ const Editor = observer(() => {
       store.layers.set(id, layer);
       store.name === "" &&
         (store.name = files[0].name.split(".").shift() || "emoji");
-      const dispose = autorun(() => {
-        const { flipX, flipY, resize } = layer.edits;
+      const debouncedLayerRender = debounce(() => {
+        const { flipX, flipY, resize, brightness, contrast } = layer.edits;
         const { slice, speed, quality } = store;
-        //TODO: Debounce
-        layerWorker.renderLayer({
+        layerWorker.render({
           id,
           file,
-          edits: { flipX, flipY, resize },
+          edits: { flipX, flipY, resize, brightness, contrast },
           settings: {
             slice: toJS(slice),
             speed,
             quality,
           },
         });
+      }, 500);
+      const dispose = autorun(() => {
+        // trigger the autorun
+        const run = store.editsHash && layer.editsHash;
+        if (run) {
+          debouncedLayerRender();
+        }
       });
       store.disposers.set("id", dispose);
     });
@@ -327,7 +342,7 @@ const Editor = observer(() => {
         <div className="w-40 flex flex-col gap-2 items-center self-center">
           {previewUrls && <EmojiPreview images={previewUrls} slice={slice} />}
           <span className="break-all">
-            <Text size="xsmall">{Math.max(...previewUrls.map((url) => getImageSize(url)))} bytes</Text>
+            <Text size="xsmall">(Largest image: {Math.max(...previewUrls.map((url) => getImageSizeInKB(url)))}KB)</Text>
           </span>
         </div>
         <div className="grow grid gap-6 grid-flow-row justify-self-stretch items-center">
@@ -474,7 +489,7 @@ const EmojiPreview = ({
   );
 };
 
-const getImageSize = (src: string) => {
+const getImageSizeInKB = (src: string) => {
   const base64Length = src.length - (src.indexOf(",") + 1);
   const padding =
     src.charAt(src.length - 2) === "="
@@ -482,7 +497,7 @@ const getImageSize = (src: string) => {
       : src.charAt(src.length - 1) === "="
         ? 1
         : 0;
-  return base64Length * 0.75 - padding;
+  return (base64Length * 0.75 - padding) / 1000;
 };
 
 const mapFromSlice = (images: string[], slice: Slice): string[][] => {
@@ -498,42 +513,58 @@ const mapFromSlice = (images: string[], slice: Slice): string[][] => {
   return rows;
 };
 
-class ImageWorker {
+interface ImageWorker {
+  render(data: unknown): void;
+  destroy(): void;
+}
+
+class LayerWorker implements ImageWorker {
   private worker: Worker;
   constructor(
-    layerHandler: (data: Omit<WorkerResponseLayer, "type">) => void,
-    previewHandler: (data: Omit<WorkerResponsePreview, "type">) => void,
+    handler: (data: LayerWorkerResponse) => void,
   ) {
-    this.worker = new Worker(new URL("../worker.ts", import.meta.url), {
+    this.worker = new Worker(new URL("../workers/layer_worker.ts", import.meta.url), {
       type: "module",
     });
-    this.worker.onmessage = (e: MessageEvent<WorkerResponse>) => {
+    this.worker.onmessage = (e: MessageEvent<LayerWorkerResponse>) => {
       if (!e.data) {
         throw new Error("oops");
       }
-      switch (e.data.type) {
-        case "layer": {
-          layerHandler(e.data);
-          break;
-        }
-        case "preview": {
-          previewHandler(e.data);
-          break;
-        }
-      }
+      handler(e.data);
     };
   }
 
-  renderLayer(data: WorkerRequestLayer) {
-    this.send(toJS({ type: "layer", ...data }));
+  render(data: LayerWorkerRequest) {
+    this.worker.postMessage(toJS(data));
   }
 
-  renderPreview(data: WorkerRequestPreview) {
-    this.send(toJS({ type: "preview", ...data }));
+  destroy() {
+    this.worker.terminate();
+  }
+}
+
+class PreviewWorker {
+  private worker: Worker;
+  constructor(
+    handler: (data: PreviewWorkerResponse) => void,
+  ) {
+    this.worker = new Worker(new URL("../workers/preview_worker.ts", import.meta.url), {
+      type: "module",
+    });
+    this.worker.onmessage = (e: MessageEvent<PreviewWorkerResponse>) => {
+      if (!e.data) {
+        throw new Error("oops");
+      }
+      handler(e.data);
+    };
   }
 
-  private send(data: WorkerRequest) {
-    this.worker.postMessage(data);
+  render(data: PreviewWorkerRequest) {
+    this.worker.postMessage(toJS(data));
+  }
+
+  destroy() {
+    this.worker.terminate();
   }
 }
 

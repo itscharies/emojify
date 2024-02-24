@@ -21,7 +21,7 @@ export function App() {
       </main>
       <Divider />
       <footer>
-        <Text>Made with 💖 by @itscharies</Text>
+        <Text>Made with 💖 by Caleb</Text>
       </footer>
     </div>
   );
