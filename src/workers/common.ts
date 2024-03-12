@@ -172,5 +172,7 @@ const getBlendMode = (blendMode: BlendMode) => {
       return jimp.BLEND_DIFFERENCE;
     case "exclusion":
       return jimp.BLEND_EXCLUSION;
+    default:
+      throw new Error("unreachable");
   }
 };
