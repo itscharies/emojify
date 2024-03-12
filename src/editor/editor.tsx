@@ -240,6 +240,10 @@ const QUALITY_OPTIONS: { label: string; value: string }[] = [
     label: "Low",
     value: "low",
   },
+  {
+    label: "💀💀💀",
+    value: "none",
+  },
 ];
 
 const Editor = observer(() => {
@@ -444,6 +448,9 @@ const Editor = observer(() => {
       case "low":
         store.quality = 8;
         break;
+      case "none":
+        store.quality = 4;
+        break;
       default:
         store.quality = undefined;
     }
@@ -537,13 +544,15 @@ const Editor = observer(() => {
                   <Select
                     options={QUALITY_OPTIONS}
                     value={
-                      quality === 15
-                        ? "high"
-                        : quality === 10
-                          ? "medium"
-                          : quality === 8
-                            ? "low"
-                            : "full"
+                      !quality
+                        ? "full"
+                        : quality > 10
+                          ? "high"
+                          : quality > 8
+                            ? "medium"
+                            : quality > 4
+                              ? "low"
+                              : "none"
                     }
                     onChange={onChangeQuality}
                   />
