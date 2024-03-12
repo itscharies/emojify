@@ -506,7 +506,7 @@ const Editor = observer(() => {
           />
         </div>
       </div>
-      <div className="mt-6 sticky bottom-0 bg-slate-950 before:content[''] before:absolute before:w-full before:h-12 before:-translate-y-full before:bg-gradient-to-t before:from-slate-950 before:to-transparent">
+      <div className="mt-6 sticky bottom-0 bg-slate-950 before:content[''] before:absolute before:pointer-events-none before:w-full before:h-12 before:-translate-y-full before:bg-gradient-to-t before:from-slate-950 before:to-transparent">
         <Divider />
         <div className="flex flex-row gap-6 items-center py-6">
           <div className="w-40 flex flex-col gap-2 items-center self-center">
