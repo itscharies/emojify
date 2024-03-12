@@ -41,6 +41,7 @@ export const OUTPUT_SIZE = 64;
 export type Slice = { x: number; y: number };
 
 export class EditorState {
+  order: string[] = [];
   layers: Map<string, LayerState> = observable.map([], { deep: true });
   disposers: Map<string, () => void> = observable.map([], { deep: true });
   name: string = "";
@@ -53,11 +54,23 @@ export class EditorState {
       (layer) => layer.file.type === "image/gif",
     );
   }
+  get sortedLayers() {
+    const layers = Array.from(this.layers.entries());
+    if (this.order.length === 0) {
+      return layers;
+    }
+    return layers.sort(([a], [b]) =>
+      this.order.findIndex((id) => id === a) >
+      this.order.findIndex((id) => id === b)
+        ? 1
+        : -1,
+    );
+  }
   get hasLayers() {
     return this.layers.size > 0;
   }
   get editsHash() {
-    return `${this.slice.x}${this.slice.y}${this.speed}${this.quality}`;
+    return `${this.slice.x}${this.slice.y}${this.speed}${this.quality}${this.order.join("")}`;
   }
   get previewHash(): string {
     return (
@@ -81,16 +94,22 @@ export class LayerState {
     const {
       flipX,
       flipY,
+      resize,
+      rotate,
+      scale,
+      top,
+      left,
+      width,
+      height,
       brightness,
       contrast,
-      resize,
       alignX,
       alignY,
       blendMode,
       invert,
       grayscale,
     } = this.edits;
-    return `${this.id}${this.name}${flipX}${flipY}${brightness}${contrast}${resize}${alignX}${alignY}${blendMode}${invert}${grayscale}`;
+    return `${this.id}${this.name}${flipX}${flipY}${resize}${rotate}${scale}${top}${left}${width}${height}${brightness}${contrast}${alignX}${alignY}${blendMode}${invert}${grayscale}`;
   }
   constructor({ id, file, name }: { id: string; file: File; name: string }) {
     this.id = id;
@@ -102,7 +121,7 @@ export class LayerState {
   }
 }
 
-export type ResizeMode = "resize" | "cover" | "contain";
+export type ResizeMode = "resize" | "cover" | "contain" | "none";
 export type BlendMode =
   | "normal"
   | "multiply"
@@ -118,6 +137,12 @@ export type BlendMode =
 export type AlignMode = "start" | "center" | "end";
 export class Edits {
   resize: ResizeMode = "contain";
+  rotate: number = 0;
+  scale: number = 1;
+  top: number = 0;
+  left: number = 0;
+  width: number = OUTPUT_SIZE;
+  height: number = OUTPUT_SIZE;
   flipX: boolean = false;
   flipY: boolean = false;
   brightness: number = 0;
@@ -192,6 +217,10 @@ const RESIZE_OPTIONS: { label: string; value: ResizeMode }[] = [
     label: "Stretch",
     value: "resize",
   },
+  {
+    label: "Manual",
+    value: "none",
+  },
 ];
 
 const QUALITY_OPTIONS: { label: string; value: string }[] = [
@@ -234,9 +263,9 @@ const Editor = observer(() => {
   const previewWorker = useMemo(() => new PreviewWorker(), []);
 
   const debouncedPreview = debounce(async () => {
-    const { layers, slice, speed, quality } = store;
+    const { sortedLayers, slice, speed, quality } = store;
     const { urls } = await previewWorker.render({
-      layers: Array.from(layers.values()).map((layer) => toJS(layer)),
+      layers: sortedLayers.map(([_, layer]) => toJS(layer)),
       settings: {
         slice: toJS(slice),
         speed,
@@ -268,6 +297,7 @@ const Editor = observer(() => {
       const name = file.name;
       const layer = new LayerState({ id: id, file, name });
       store.layers.set(id, layer);
+      store.order.push(id);
       store.name === "" &&
         (store.name = files[0].name.split(".").shift() || "emoji");
       const debouncedLayerRender = debounce(() => {
@@ -275,6 +305,12 @@ const Editor = observer(() => {
           flipX,
           flipY,
           resize,
+          rotate,
+          scale,
+          top,
+          left,
+          width,
+          height,
           brightness,
           contrast,
           alignX,
@@ -291,6 +327,12 @@ const Editor = observer(() => {
             flipX,
             flipY,
             resize,
+            rotate,
+            scale,
+            top,
+            left,
+            width,
+            height,
             brightness,
             contrast,
             alignX,
@@ -349,6 +391,12 @@ const Editor = observer(() => {
     store.layers.delete(id);
     store.disposers.get(id)?.();
     store.disposers.delete(id);
+    const order = [...store.order];
+    order.splice(
+      store.order.findIndex((i) => i === id),
+      1,
+    );
+    store.order = order;
   });
 
   const { hasLayers } = store;
@@ -368,7 +416,16 @@ const Editor = observer(() => {
     );
   }
 
-  const { layers, name, previewUrls, slice, speed, quality, isGif } = store;
+  const {
+    sortedLayers,
+    order,
+    name,
+    previewUrls,
+    slice,
+    speed,
+    quality,
+    isGif,
+  } = store;
   const { x, y } = slice;
   const ext = isGif ? ".gif" : ".png";
 
@@ -408,11 +465,28 @@ const Editor = observer(() => {
 
   const onChangeName = action((name: string) => (store.name = name));
 
+  const moveLayer = action((index: number, targetIndex: number) => {
+    store.order = arrayMove(order, index, targetIndex);
+  });
+
   return (
     <div className="flex flex-col h-full gap-6">
       <div className="grow flex flex-col gap-6">
-        {Array.from(layers.entries()).map(([id, layer]) => {
-          return <LayerEditor key={id} layer={layer} onDelete={onDelete} />;
+        {sortedLayers.map(([id, layer], index) => {
+          return (
+            <LayerEditor
+              key={id}
+              layer={layer}
+              index={index}
+              onDelete={onDelete}
+              moveDown={
+                index < sortedLayers.length - 1
+                  ? () => moveLayer(index, index + 1)
+                  : undefined
+              }
+              moveUp={index > 0 ? () => moveLayer(index, index - 1) : undefined}
+            />
+          );
         })}
         <div className="h-20">
           <FileInput
@@ -425,67 +499,70 @@ const Editor = observer(() => {
           />
         </div>
       </div>
-      <Divider />
-      <div className="flex flex-row gap-6 items-center">
-        <div className="w-40 flex flex-col gap-2 items-center self-center">
-          {previewUrls && <EmojiPreview images={previewUrls} slice={slice} />}
-          <span className="break-all">
-            <Text size="xsmall">
-              (Largest image:{" "}
-              {Math.max(...previewUrls.map((url) => getImageSizeInKB(url)))}KB)
-            </Text>
-          </span>
-        </div>
-        <div className="grow grid gap-6 grid-flow-row justify-self-stretch items-center">
-          <div className="grid gap-10 grid-flow-col-dense justify-start">
-            <Slice
-              valueX={x}
-              valueY={y}
-              onChangeX={onChangeSliceX}
-              onChangeY={onChangeSliceY}
-            />
-            {isGif && (
-              <Field>
-                <Label>Speed</Label>
-                <Number
-                  value={speed}
-                  onChange={onChangeSpeed}
-                  min={2}
-                  max={30}
-                />
-              </Field>
-            )}
-            {isGif && (
-              <Field>
-                <Label>Quality</Label>
-                <Select
-                  options={QUALITY_OPTIONS}
-                  value={
-                    quality === 15
-                      ? "high"
-                      : quality === 10
-                        ? "medium"
-                        : quality === 8
-                          ? "low"
-                          : "full"
-                  }
-                  onChange={onChangeQuality}
-                />
-              </Field>
-            )}
-          </div>
-          <div className="flex gap-6 flex-row items-end">
-            <div className="grow">
-              <Field>
-                <Label>File name</Label>
-                <TextInput value={name} onChange={onChangeName} />
-              </Field>
-            </div>
-            <Button onClick={() => downloadBundle(previewUrls, name, ext)}>
-              <Text weight="bold" align="center">
-                Download
+      <div className="mt-6 sticky bottom-0 bg-slate-950 before:content[''] before:absolute before:w-full before:h-12 before:-translate-y-full before:bg-gradient-to-t before:from-slate-950 before:to-transparent">
+        <Divider />
+        <div className="flex flex-row gap-6 items-center py-6">
+          <div className="w-40 flex flex-col gap-2 items-center self-center">
+            {previewUrls && <EmojiPreview images={previewUrls} slice={slice} />}
+            <span className="break-all">
+              <Text size="xsmall">
+                (Largest image:{" "}
+                {Math.max(...previewUrls.map((url) => getImageSizeInKB(url)))}
+                KB)
               </Text>
-            </Button>
+            </span>
+          </div>
+          <div className="grow grid gap-6 grid-flow-row justify-self-stretch items-center">
+            <div className="grid gap-10 grid-flow-col-dense justify-start">
+              <Slice
+                valueX={x}
+                valueY={y}
+                onChangeX={onChangeSliceX}
+                onChangeY={onChangeSliceY}
+              />
+              {isGif && (
+                <Field>
+                  <Label>Speed</Label>
+                  <Number
+                    value={speed}
+                    onChange={onChangeSpeed}
+                    min={2}
+                    max={30}
+                  />
+                </Field>
+              )}
+              {isGif && (
+                <Field>
+                  <Label>Quality</Label>
+                  <Select
+                    options={QUALITY_OPTIONS}
+                    value={
+                      quality === 15
+                        ? "high"
+                        : quality === 10
+                          ? "medium"
+                          : quality === 8
+                            ? "low"
+                            : "full"
+                    }
+                    onChange={onChangeQuality}
+                  />
+                </Field>
+              )}
+            </div>
+            <div className="flex gap-6 flex-row items-end">
+              <div className="grow">
+                <Field>
+                  <Label>File name</Label>
+                  <TextInput value={name} onChange={onChangeName} />
+                </Field>
+              </div>
+              <Button onClick={() => downloadBundle(previewUrls, name, ext)}>
+                <Text weight="bold" align="center">
+                  Download
+                </Text>
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -494,12 +571,28 @@ const Editor = observer(() => {
 });
 
 const LayerEditor = observer(
-  ({ layer, onDelete }: { layer: LayerState; onDelete(id: string): void }) => {
+  ({
+    layer,
+    moveUp,
+    moveDown,
+    onDelete,
+  }: {
+    layer: LayerState;
+    index: number;
+    moveUp: (() => void) | undefined;
+    moveDown: (() => void) | undefined;
+    onDelete(id: string): void;
+  }) => {
     const { id, edits, name, dataUrl } = layer;
     const {
       resize,
       flipX,
       flipY,
+      scale,
+      top,
+      left,
+      width,
+      height,
       brightness,
       contrast,
       blendMode,
@@ -510,11 +603,36 @@ const LayerEditor = observer(
     return (
       <div className="border border-slate-500 rounded p-6">
         <div className="flex w-full gap-6">
-          <div className="w-40 flex flex-col gap-2 items-center self-center">
-            {dataUrl && <Image src={dataUrl} />}
+          <div className="w-40 flex flex-col gap-4 ">
+            {dataUrl && (
+              <div className="w-40 flex justify-center items">
+                <Image src={dataUrl} />
+              </div>
+            )}
             <span className="break-all">
               <Text size="xsmall">{name}</Text>
             </span>
+            <Divider />
+            <div className="grid gap-2 grid-flow-col justify-stretch items-center">
+              <Button disabled={!moveUp} onClick={moveUp ? moveUp : () => {}}>
+                <Text weight="bold" align="center">
+                  ⬆
+                </Text>
+              </Button>
+              <Button
+                disabled={!moveDown}
+                onClick={moveDown ? moveDown : () => {}}
+              >
+                <Text weight="bold" align="center">
+                  ⬇
+                </Text>
+              </Button>
+            </div>
+            <Button onClick={() => onDelete(id)}>
+              <Text weight="bold" align="center">
+                Delete layer
+              </Text>
+            </Button>
           </div>
           <div className="grow grid grid-flow-row gap-4">
             <Field>
@@ -524,6 +642,72 @@ const LayerEditor = observer(
                 options={RESIZE_OPTIONS}
                 onChange={action((value) => (edits.resize = value))}
               />
+            </Field>
+            {resize === "none" && (
+              <div className="grid gap-1 grid-cols-5">
+                <Field>
+                  <Label>Top</Label>
+                  <Number
+                    value={top}
+                    onChange={action((value) => (edits.top = value))}
+                  />
+                </Field>
+                <Field>
+                  <Label>Left</Label>
+                  <Number
+                    value={left}
+                    onChange={action((value) => (edits.left = value))}
+                  />
+                </Field>
+                <Field>
+                  <Label>Width</Label>
+                  <Number
+                    min={0}
+                    value={width}
+                    onChange={action((value) => (edits.width = value))}
+                  />
+                </Field>
+                <Field>
+                  <Label>Height</Label>
+                  <Number
+                    min={0}
+                    value={height}
+                    onChange={action((value) => (edits.height = value))}
+                  />
+                </Field>
+                <Field>
+                  <Label>Scale</Label>
+                  <Number
+                    min={0}
+                    max={100}
+                    value={scale}
+                    onChange={action((value) => (edits.scale = value))}
+                  />
+                </Field>
+              </div>
+            )}
+            <Field>
+              <Label>Rotate</Label>
+              <div className="grid gap-2 grid-flow-col justify-stretch items-center">
+                <Button
+                  onClick={action(
+                    () => (edits.rotate = (edits.rotate + 90) % 360),
+                  )}
+                >
+                  <Text weight="bold" align="center">
+                    ↪️
+                  </Text>
+                </Button>
+                <Button
+                  onClick={action(
+                    () => (edits.rotate = (edits.rotate - 90) % 360),
+                  )}
+                >
+                  <Text weight="bold" align="center">
+                    ↩️
+                  </Text>
+                </Button>
+              </div>
             </Field>
             <Field direction="col" align="start">
               <Label>Flip X</Label>
@@ -579,11 +763,6 @@ const LayerEditor = observer(
                 onChange={action((value) => (edits.blendMode = value))}
               />
             </Field>
-            <Button onClick={() => onDelete(id)}>
-              <Text weight="bold" align="center">
-                Delete layer
-              </Text>
-            </Button>
           </div>
         </div>
       </div>
@@ -623,6 +802,23 @@ const EmojiPreview = ({
     </div>
   );
 };
+
+function arrayMove(arr, oldIndex, newIndex) {
+  while (oldIndex < 0) {
+    oldIndex += arr.length;
+  }
+  while (newIndex < 0) {
+    newIndex += arr.length;
+  }
+  if (newIndex >= arr.length) {
+    let k = newIndex - arr.length + 1;
+    while (k--) {
+      arr.push(undefined);
+    }
+  }
+  arr.splice(newIndex, 0, arr.splice(oldIndex, 1)[0]);
+  return arr; // for testing purposes
+}
 
 const getImageSizeInKB = (src: string) => {
   const base64Length = src.length - (src.indexOf(",") + 1);

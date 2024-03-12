@@ -1,13 +1,7 @@
 import type Jimp from "jimp";
 import jimp from "jimp/es";
 import { GifCodec, GifFrame, GifUtil } from "gifwrap";
-import {
-  BlendMode,
-  Edits,
-  OUTPUT_SIZE,
-  ResizeMode,
-  Slice,
-} from "../editor/editor";
+import { BlendMode, Edits, OUTPUT_SIZE, Slice } from "../editor/editor";
 
 // Proces the image, returns a list of frames[] which is a list of parts[]
 export async function processImage(
@@ -23,22 +17,24 @@ export async function processImage(
     gif.frames.forEach((frame) => {
       const image: Jimp = GifUtil.copyAsJimp(jimp, frame);
       const edited = applyEdits(image, edits);
-      gifs.push(resizeToSlice(edited, slice, edits.resize));
+      gifs.push(resizeToSlice(edited, slice, edits));
     });
     return gifs;
   } else {
     const arrayBuffer = await file.arrayBuffer();
     const image = await jimp.read(Buffer.from(arrayBuffer));
     const edited = applyEdits(image, edits);
-    const resized = resizeToSlice(edited, slice, edits.resize);
+    const resized = resizeToSlice(edited, slice, edits);
     return [resized];
   }
 }
 
 // Applies any edits to an image
 export function applyEdits(image: Jimp, edits: Edits): Jimp {
-  const { flipX, flipY, brightness, contrast, invert, grayscale } = edits;
-  image.flip(flipX, flipY);
+  const { flipX, flipY, rotate, brightness, contrast, invert, grayscale } =
+    edits;
+  rotate !== 0 && image.rotate(rotate);
+  (flipX || flipY) && image.flip(flipX, flipY);
   image.contrast(contrast / 100);
   image.brightness(brightness / 100);
   invert && image.invert();
@@ -49,11 +45,16 @@ export function applyEdits(image: Jimp, edits: Edits): Jimp {
 export function resizeToSlice(
   image: Jimp,
   { x, y }: Slice,
-  mode: ResizeMode,
+  edits: Edits,
 ): Jimp {
+  const { resize, scale, top, left, width: w, height: h } = edits;
   const width = x * OUTPUT_SIZE;
   const height = y * OUTPUT_SIZE;
-  return image[mode](width, height);
+  const base: Jimp = new jimp(width, height);
+  if (resize === "none") {
+    return base.composite(image.resize(w, h).scale(scale), left, top);
+  }
+  return base.composite(image[resize](width, height), 0, 0);
 }
 
 // Returns an array of emoji-sized, Jimp modifyable images from a given slice
@@ -130,17 +131,19 @@ export function composeImages(
   images: Jimp[],
   layerBlendModes: BlendMode[],
 ): Jimp {
-  let prevImage;
+  let prevImage: Jimp = images[0].clone();
   for (let i = 0; i < images.length; i++) {
     if (!prevImage) {
       prevImage = images[i].clone();
       continue;
     }
     if (layerBlendModes[i] === "mask") {
-      prevImage.mask(images[i]);
+      prevImage.mask(images[i], 0, 0);
     } else {
       prevImage.composite(images[i], 0, 0, {
         mode: getBlendMode(layerBlendModes[i]),
+        opacitySource: 1,
+        opacityDest: 1,
       });
     }
   }

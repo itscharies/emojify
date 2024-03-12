@@ -13,7 +13,7 @@ export function Number({
   max?: number;
 }) {
   const classes =
-    "h-10 grid content-center items-center px-2 py-1 border border-slate-100 rounded hover:cursor-pointer";
+    "h-10 grid w-full content-center items-center px-2 py-1 border border-slate-100 rounded hover:cursor-pointer";
   return (
     <FieldContext.Consumer>
       {(id) => {
