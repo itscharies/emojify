@@ -5,18 +5,26 @@ export function Button({
   onClick,
   disabled,
   children,
-}: React.PropsWithChildren<{ onClick(): void; disabled?: boolean }>) {
+  stretch,
+}: React.PropsWithChildren<{
+  onClick(): void;
+  disabled?: boolean;
+  stretch?: boolean;
+}>) {
   return (
     <button
       type="button"
       disabled={disabled}
       className={classNames(
-        "min-w-fit h-10 grid content-center items-center px-2 py-1 border border-slate-100 rounded hover:cursor-pointer hover:opacity-75",
+        "h-10 grid content-center items-center justify-center px-2 py-1 rounded transition-all",
         {
-          "pointer-events-none opacity-50": disabled,
+          "bg-slate-800 hover:cursor-pointer hover:opacity-75": !disabled,
+          "bg-slate-900 hover:cursor-not-allowed opacity-50": disabled,
+          "w-fit": !stretch,
+          "w-full": stretch,
         },
       )}
-      onClick={onClick}
+      onClick={() => !disabled && onClick()}
     >
       {children}
     </button>

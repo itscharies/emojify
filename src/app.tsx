@@ -21,7 +21,9 @@ export function App() {
       </main>
       <Divider />
       <footer>
-        <Text>Made with 💖 by Caleb</Text>
+        <Text>
+          Made with <RandomEmoji /> by Caleb
+        </Text>
       </footer>
     </div>
   );

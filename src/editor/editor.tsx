@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { observer, useLocalObservable } from "mobx-react-lite";
 import {
   action,
@@ -35,6 +35,13 @@ import {
 } from "../workers/preview_worker";
 import classNames from "classnames";
 import { debounce } from "../base/debounce";
+import { Accordion } from "../components/accordion";
+import { CornerUpLeft } from "../icons/corner_up_left";
+import { CornerUpRight } from "../icons/corner_up_right";
+import { ArrowUp } from "../icons/arrow_up";
+import { ArrowDown } from "../icons/arrow_down";
+import { FlipX } from "../icons/flip_x";
+import { FlipY } from "../icons/flip_y";
 
 export const OUTPUT_SIZE = 64;
 
@@ -47,6 +54,7 @@ export class EditorState {
   name: string = "";
   previewUrls: string[] = [];
   slice: Slice = { x: 1, y: 1 };
+  // TODO: preserve original speed
   speed: number = 5;
   quality: number | undefined = undefined;
   get isGif() {
@@ -521,12 +529,29 @@ const Editor = observer(() => {
           </div>
           <div className="grow grid gap-6 grid-flow-row justify-self-stretch items-center">
             <div className="grid gap-10 grid-flow-col-dense justify-start">
-              <Slice
-                valueX={x}
-                valueY={y}
-                onChangeX={onChangeSliceX}
-                onChangeY={onChangeSliceY}
-              />
+              <div className="grid grid-flow-row gap-1 w-fit items-center">
+                <Text weight="bold">Slices</Text>
+                <div className="grid grid-flow-col gap-4 w-fit items-center">
+                  <Field direction="col" align="center">
+                    <Label>X:</Label>
+                    <Number
+                      value={x}
+                      min={1}
+                      max={10}
+                      onChange={(value) => onChangeSliceX(value)}
+                    />
+                  </Field>
+                  <Field direction="col" align="center">
+                    <Label>Y:</Label>
+                    <Number
+                      value={y}
+                      min={1}
+                      max={10}
+                      onChange={(value) => onChangeSliceY(value)}
+                    />
+                  </Field>
+                </div>
+              </div>
               {isGif && (
                 <Field>
                   <Label>Speed</Label>
@@ -559,14 +584,17 @@ const Editor = observer(() => {
                 </Field>
               )}
             </div>
-            <div className="flex gap-6 flex-row items-end">
-              <div className="grow">
+            <div className="flex gap-4 flex-row items-end">
+              <div className="w-[200%]">
                 <Field>
                   <Label>File name</Label>
                   <TextInput value={name} onChange={onChangeName} />
                 </Field>
               </div>
-              <Button onClick={() => downloadBundle(previewUrls, name, ext)}>
+              <Button
+                stretch={true}
+                onClick={() => downloadBundle(previewUrls, name, ext)}
+              >
                 <Text weight="bold" align="center">
                   Download
                 </Text>
@@ -592,6 +620,8 @@ const LayerEditor = observer(
     moveDown: (() => void) | undefined;
     onDelete(id: string): void;
   }) => {
+    const [rotateA, setRotateA] = useState(0);
+    const [rotateB, setRotateB] = useState(0);
     const { id, edits, name, dataUrl } = layer;
     const {
       resize,
@@ -610,40 +640,47 @@ const LayerEditor = observer(
     } = edits;
 
     return (
-      <div className="border border-slate-500 rounded p-6">
+      <div className="border border-slate-800 rounded-md p-6">
         <div className="flex w-full gap-6">
-          <div className="w-40 flex flex-col gap-4 ">
+          <div className="w-40 min-w-40 flex flex-col gap-4">
             {dataUrl && (
               <div className="w-40 flex justify-center items">
                 <Image src={dataUrl} />
               </div>
             )}
             <span className="break-all">
-              <Text size="xsmall">{name}</Text>
+              <Text size="xsmall" align="center">
+                {name}
+              </Text>
             </span>
             <Divider />
-            <div className="grid gap-2 grid-flow-col justify-stretch items-center">
-              <Button disabled={!moveUp} onClick={moveUp ? moveUp : () => {}}>
-                <Text weight="bold" align="center">
-                  ⬆
-                </Text>
+            <div className="grid gap-1.5 grid-flow-col justify-stretch items-center">
+              <Button
+                stretch={true}
+                disabled={!moveUp}
+                onClick={moveUp ? moveUp : () => {}}
+              >
+                <span className="w-6 h-6 text-slate-100">
+                  <ArrowUp />
+                </span>
               </Button>
               <Button
+                stretch={true}
                 disabled={!moveDown}
                 onClick={moveDown ? moveDown : () => {}}
               >
-                <Text weight="bold" align="center">
-                  ⬇
-                </Text>
+                <span className="w-6 h-6 text-slate-100">
+                  <ArrowDown />
+                </span>
               </Button>
             </div>
-            <Button onClick={() => onDelete(id)}>
+            <Button stretch={true} onClick={() => onDelete(id)}>
               <Text weight="bold" align="center">
                 Delete layer
               </Text>
             </Button>
           </div>
-          <div className="grow grid grid-flow-row gap-4">
+          <div className="w-full flex flex-col gap-4">
             <Field>
               <Label>Resize mode</Label>
               <RadioTabs<ResizeMode>
@@ -653,7 +690,7 @@ const LayerEditor = observer(
               />
             </Field>
             {resize === "none" && (
-              <div className="grid gap-1 grid-cols-5">
+              <div className="grid gap-1.5 grid-cols-5">
                 <Field>
                   <Label>Top</Label>
                   <Number
@@ -695,83 +732,126 @@ const LayerEditor = observer(
                 </Field>
               </div>
             )}
-            <Field>
-              <Label>Rotate</Label>
-              <div className="grid gap-2 grid-flow-col justify-stretch items-center">
-                <Button
-                  onClick={action(
-                    () => (edits.rotate = (edits.rotate + 90) % 360),
-                  )}
-                >
-                  <Text weight="bold" align="center">
-                    ↪️
-                  </Text>
-                </Button>
-                <Button
-                  onClick={action(
-                    () => (edits.rotate = (edits.rotate - 90) % 360),
-                  )}
-                >
-                  <Text weight="bold" align="center">
-                    ↩️
-                  </Text>
-                </Button>
+            <Accordion
+              title={
+                <Text size="large" weight="bold">
+                  Layer adjustments
+                </Text>
+              }
+            >
+              <div className="grid grid-flow-dense grid-cols-2 gap-4">
+                <Field>
+                  <Label>Rotate</Label>
+                  <div className="grid gap-1.5 grid-flow-col justify-stretch items-center">
+                    <Button
+                      stretch={true}
+                      onClick={action(() => {
+                        edits.rotate = (edits.rotate - 90) % 360;
+                        setRotateB(rotateB + 360);
+                      })}
+                    >
+                      <span
+                        className="w-6 h-6 text-slate-100 transition-transform duration-500"
+                        style={{ transform: `rotate(${rotateB}deg)` }}
+                      >
+                        <CornerUpRight />
+                      </span>
+                    </Button>
+                    <Button
+                      stretch={true}
+                      onClick={action(() => {
+                        edits.rotate = (edits.rotate + 90) % 360;
+                        setRotateA(rotateA - 360);
+                      })}
+                    >
+                      <span
+                        className="w-6 h-6 text-slate-100 transition-transform duration-500"
+                        style={{ transform: `rotate(${rotateA}deg)` }}
+                      >
+                        <CornerUpLeft />
+                      </span>
+                    </Button>
+                  </div>
+                </Field>
+                <Field>
+                  <Label>Flip</Label>
+                  <div className="grid gap-1.5 grid-flow-col justify-stretch items-center">
+                    <Button
+                      stretch={true}
+                      onClick={action(() => (edits.flipX = !flipX))}
+                    >
+                      <span
+                        className={classNames(
+                          "w-6 h-6 text-slate-100 transition-transform duration-300",
+                          {
+                            "-scale-x-100": !flipX,
+                          },
+                        )}
+                      >
+                        <FlipX />
+                      </span>
+                    </Button>
+                    <Button
+                      stretch={true}
+                      onClick={action(() => (edits.flipY = !flipY))}
+                    >
+                      <span
+                        className={classNames(
+                          "w-6 h-6 text-slate-100 transition-transform duration-300",
+                          {
+                            "-scale-y-100": !flipY,
+                          },
+                        )}
+                      >
+                        <FlipY />
+                      </span>
+                    </Button>
+                  </div>
+                </Field>
+                <Field>
+                  <Label>Brightness</Label>
+                  <Range
+                    min={-100}
+                    max={100}
+                    value={brightness}
+                    onChange={action((value) => (edits.brightness = value))}
+                  />
+                </Field>
+                <Field>
+                  <Label>Contrast</Label>
+                  <Range
+                    min={-100}
+                    max={100}
+                    value={contrast}
+                    onChange={action((value) => (edits.contrast = value))}
+                  />
+                </Field>
+                <div className="grid gap-2">
+                  <Field direction="col" justify="between">
+                    <Label>Invert</Label>
+                    <Checkbox
+                      value={invert}
+                      onChange={action((value) => (edits.invert = !value))}
+                    />
+                  </Field>
+                  <Field direction="col" justify="between">
+                    <Label>Grayscale</Label>
+                    <Checkbox
+                      value={grayscale}
+                      onChange={action((value) => (edits.grayscale = !value))}
+                    />
+                  </Field>
+                </div>
+                <Field>
+                  <Label>Blend mode</Label>
+                  <Select
+                    options={BLEND_OPTIONS}
+                    value={blendMode}
+                    onChange={action((value) => (edits.blendMode = value))}
+                  />
+                </Field>
               </div>
-            </Field>
-            <Field direction="col" align="start">
-              <Label>Flip X</Label>
-              <Checkbox
-                value={flipX}
-                onChange={action((value) => (edits.flipX = !value))}
-              />
-            </Field>
-            <Field direction="col" align="start">
-              <Label>Flip Y</Label>
-              <Checkbox
-                value={flipY}
-                onChange={action((value) => (edits.flipY = !value))}
-              />
-            </Field>
-            <Field>
-              <Label>Brightness</Label>
-              <Range
-                min={-100}
-                max={100}
-                value={brightness}
-                onChange={action((value) => (edits.brightness = value))}
-              />
-            </Field>
-            <Field>
-              <Label>Contrast</Label>
-              <Range
-                min={-100}
-                max={100}
-                value={contrast}
-                onChange={action((value) => (edits.contrast = value))}
-              />
-            </Field>
-            <Field direction="col" align="start">
-              <Label>Invert</Label>
-              <Checkbox
-                value={invert}
-                onChange={action((value) => (edits.invert = !value))}
-              />
-            </Field>
-            <Field direction="col" align="start">
-              <Label>Grayscale</Label>
-              <Checkbox
-                value={grayscale}
-                onChange={action((value) => (edits.grayscale = !value))}
-              />
-            </Field>
-            <Field>
-              <Label>Blend mode</Label>
-              <Select
-                options={BLEND_OPTIONS}
-                value={blendMode}
-                onChange={action((value) => (edits.blendMode = value))}
-              />
-            </Field>
+            </Accordion>
           </div>
         </div>
       </div>
@@ -788,8 +868,7 @@ const EmojiPreview = ({
   images: string[];
   slice: Slice;
 }) => {
-  const longest = Math.max(slice.x, slice.y);
-  const gap = longest > 8 ? "gap-0.5" : "gap-1";
+  const gap = "gap-0.5";
   return (
     <div className="relative">
       <div className={classNames("grid grid-flow-row items-center", gap)}>

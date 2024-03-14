@@ -3,7 +3,7 @@ import classNames from "classnames";
 
 type Weight = "regular" | "bold";
 type Style = "regular" | "italic";
-type Size = "regular" | "small" | "xsmall" | "xxsmall";
+type Size = "large" | "regular" | "small" | "xsmall" | "xxsmall";
 type Align = "start" | "center" | "end";
 
 export function Text({
@@ -23,6 +23,7 @@ export function Text({
       className={classNames("font-body text-base text-slate-100", {
         ["font-bold"]: weight === "bold",
         ["font-italic"]: style === "italic",
+        ["text-lg"]: size === "large",
         ["text-sm"]: size === "small",
         ["text-xs"]: size === "xsmall",
         ["text-start"]: align === "start",

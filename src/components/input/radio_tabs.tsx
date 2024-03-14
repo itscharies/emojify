@@ -19,7 +19,7 @@ export function RadioTabs<T extends string>({
           <div
             role="radiogroup"
             id={id}
-            className="h-10 grid gap-2 grid-flow-col items-stretch"
+            className="grid gap-1.5 grid-flow-col items-stretch p-2 rounded-md border border-slate-800"
             aria-activedescendant={id + value}
           >
             {options.map((option) => {
@@ -30,8 +30,11 @@ export function RadioTabs<T extends string>({
                   key={val}
                   value={val}
                   className={classNames(
-                    { "bg-slate-800": value === val },
-                    "grid content-center items-center px-2 py-1 border border-slate-100 rounded hover:cursor-pointer hover:opacity-75",
+                    "min-w-fit h-10 grid content-center items-center px-2 py-1 rounded transition-all",
+                    {
+                      "bg-slate-900 hover:bg-slate-800": value !== val,
+                      "bg-slate-700": value === val,
+                    },
                   )}
                   onClick={() => onChange(val)}
                 >

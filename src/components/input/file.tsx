@@ -22,12 +22,14 @@ export function FileInput({
         onChange={(e) => {
           onFileUpload(e.target.files || undefined);
         }}
+        tabIndex={-1}
       />
       <label
         className={classNames(
-          "absolute border rounded border-slate-500 p-6 flex w-full h-full justify-center items-center cursor-pointer hover:opacity-50",
+          "absolute border border-slate-800 rounded-md p-6 flex w-full h-full justify-center items-center cursor-pointer hover:opacity-50",
         )}
         htmlFor={id}
+        tabIndex={0}
       >
         <Text>{label}</Text>
       </label>
