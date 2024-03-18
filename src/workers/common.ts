@@ -131,23 +131,19 @@ export function composeImages(
   images: Jimp[],
   layerBlendModes: BlendMode[],
 ): Jimp {
-  let prevImage: Jimp = images[0].clone();
+  const image: Jimp = new jimp(OUTPUT_SIZE, OUTPUT_SIZE);
   for (let i = 0; i < images.length; i++) {
-    if (!prevImage) {
-      prevImage = images[i].clone();
-      continue;
-    }
     if (layerBlendModes[i] === "mask") {
-      prevImage.mask(images[i], 0, 0);
+      image.mask(images[i], 0, 0);
     } else {
-      prevImage.composite(images[i], 0, 0, {
+      image.composite(images[i], 0, 0, {
         mode: getBlendMode(layerBlendModes[i]),
         opacitySource: 1,
         opacityDest: 1,
       });
     }
   }
-  return prevImage;
+  return image;
 }
 
 const getBlendMode = (blendMode: BlendMode) => {

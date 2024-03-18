@@ -17,7 +17,6 @@ import { Checkbox } from "../components/input/checkbox";
 import { Number } from "../components/input/number";
 import { Image } from "../components/image";
 import { Divider } from "../components/divider";
-import { Slice } from "../components/input/slice";
 import { TextInput } from "../components/input/text";
 import { Field } from "../components/input/field";
 import { Label } from "../components/input/label";
