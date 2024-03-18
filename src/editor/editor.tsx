@@ -308,7 +308,7 @@ const Editor = observer(() => {
       const name = file.name;
       const parts = name.split(".");
       const ext = parts.pop();
-      if (ext && !ext.match(/jpe?g|png|gif/)) {
+      if (ext && !ext.match(/jpe?g|png|gif/i)) {
         // TODO: show toast or soemthing
         alert(`.${ext} not supported :(`);
         continue;
