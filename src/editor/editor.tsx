@@ -417,9 +417,8 @@ const Editor = observer(() => {
 
   const getCoordFromSlice = (slice: Slice, index: number) => {
     const { x } = slice;
-    const currentY = Math.floor(index / x);
+    const currentY = Math.floor(index / x) + 1;
     const currentX = (index % x) + 1;
-    console.log(currentY, currentX);
     return `${numberToEncodedLetter(currentY)}${currentX}`;
   };
 

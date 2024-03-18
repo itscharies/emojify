@@ -1,18 +1,18 @@
-export function numberToEncodedLetter(number: number): string {
+const dictionary = "abcdefghijklmnopqrstuvwxyz";
+
+export function numberToEncodedLetter(number: number): string | undefined {
   //Takes any number and converts it into a base (dictionary length) letter combo. 0 corresponds to an empty string.
   //It converts any numerical entry into a positive integer.
   if (isNaN(number)) {
-    throw new Error("NaN");
+    return undefined;
   }
   number = Math.abs(Math.floor(number));
-
-  const dictionary = "abcdefghijklmnopqrstuvwxyz";
-  let index: number = number % dictionary.length;
-  let quotient: number = number / dictionary.length;
-  let result: string | undefined;
+  let index = number % dictionary.length;
+  let quotient = number / dictionary.length;
+  let result;
 
   if (number <= dictionary.length) {
-    return dictionary.charAt(number);
+    return numToLetter(number);
   } //Number is within single digit bounds of our encoding letter alphabet
 
   if (quotient >= 1) {
@@ -27,5 +27,17 @@ export function numberToEncodedLetter(number: number): string {
     index = dictionary.length;
   } //Accounts for the edge case of the final letter; avoids getting an empty string
 
-  return result + dictionary.charAt(index);
+  return result + numToLetter(index);
+
+  function numToLetter(number: number): string | undefined {
+    //Takes a letter between 0 and max letter length and returns the corresponding letter
+    if (number > dictionary.length || number < 0) {
+      return undefined;
+    }
+    if (number === 0) {
+      return "";
+    } else {
+      return dictionary.charAt(number - 1);
+    }
+  }
 }
