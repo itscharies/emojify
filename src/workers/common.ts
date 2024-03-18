@@ -31,12 +31,21 @@ export async function processImage(
 
 // Applies any edits to an image
 export function applyEdits(image: Jimp, edits: Edits): Jimp {
-  const { flipX, flipY, rotate, brightness, contrast, invert, grayscale } =
-    edits;
+  const {
+    flipX,
+    flipY,
+    rotate,
+    brightness,
+    contrast,
+    invert,
+    grayscale,
+    opacity,
+  } = edits;
   rotate !== 0 && image.rotate(rotate);
   (flipX || flipY) && image.flip(flipX, flipY);
   image.contrast(contrast / 100);
   image.brightness(brightness / 100);
+  image.opacity(opacity / 100);
   invert && image.invert();
   grayscale && image.grayscale();
   return image;
@@ -78,7 +87,7 @@ export function splitFrame(image: Jimp, { x, y }: Slice): Jimp[] {
 // Returns the layers
 export async function mergeLayers(
   layers: Jimp[][],
-  layerBlendModes: BlendMode[],
+  layerEdits: Edits[],
 ): Promise<Jimp[]> {
   const layersCount = layers.length;
   const layerlengths = layers.map((frames) => frames.length);
@@ -96,9 +105,7 @@ export async function mergeLayers(
     }
   }
   // Map parts to data-urls
-  return framesWithLayers.map((layers) =>
-    composeImages(layers, layerBlendModes),
-  );
+  return framesWithLayers.map((layers) => composeImages(layers, layerEdits));
 }
 
 export async function getDataUrl(
@@ -120,24 +127,22 @@ export async function getDataUrl(
     // Ensure color isn't out of bounds
     GifUtil.quantizeSorokin(gifFrames, 256);
     return codec
-      .encodeGif(gifFrames, { colorScope: 2 })
+      .encodeGif(gifFrames, { colorScope: 2, loops: 0 })
       .then((gif) => "data:image/gif;base64," + gif.buffer.toString("base64"));
   } else {
     return frames[0].getBase64Async(jimp.AUTO);
   }
 }
 
-export function composeImages(
-  images: Jimp[],
-  layerBlendModes: BlendMode[],
-): Jimp {
-  const image: Jimp = new jimp(OUTPUT_SIZE, OUTPUT_SIZE);
+export function composeImages(images: Jimp[], layerEdits: Edits[]): Jimp {
+  const image: Jimp = images[0].clone();
   for (let i = 0; i < images.length; i++) {
-    if (layerBlendModes[i] === "mask") {
+    const edits = layerEdits[i];
+    if (edits.blendMode === "mask") {
       image.mask(images[i], 0, 0);
     } else {
       image.composite(images[i], 0, 0, {
-        mode: getBlendMode(layerBlendModes[i]),
+        mode: getBlendMode(edits.blendMode),
         opacitySource: 1,
         opacityDest: 1,
       });

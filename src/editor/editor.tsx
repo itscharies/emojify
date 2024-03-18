@@ -9,6 +9,7 @@ import {
   toJS,
 } from "mobx";
 import { downloadZip } from "client-zip";
+import slugify from "slugify";
 import str2ab from "string-to-arraybuffer";
 import { Text } from "../components/typography/text";
 import { Button } from "../components/input/button";
@@ -34,6 +35,7 @@ import {
 } from "../workers/preview_worker";
 import classNames from "classnames";
 import { debounce } from "../base/debounce";
+import { numberToEncodedLetter } from "../base/number_to_letter";
 import { Accordion } from "../components/accordion";
 import { CornerUpLeft } from "../icons/corner_up_left";
 import { CornerUpRight } from "../icons/corner_up_right";
@@ -68,7 +70,7 @@ export class EditorState {
     }
     return layers.sort(([a], [b]) =>
       this.order.findIndex((id) => id === a) >
-        this.order.findIndex((id) => id === b)
+      this.order.findIndex((id) => id === b)
         ? 1
         : -1,
     );
@@ -115,8 +117,9 @@ export class LayerState {
       blendMode,
       invert,
       grayscale,
+      opacity,
     } = this.edits;
-    return `${this.id}${this.name}${flipX}${flipY}${resize}${rotate}${scale}${top}${left}${width}${height}${brightness}${contrast}${alignX}${alignY}${blendMode}${invert}${grayscale}`;
+    return `${this.id}${this.name}${flipX}${flipY}${resize}${rotate}${scale}${top}${left}${width}${height}${brightness}${contrast}${alignX}${alignY}${blendMode}${invert}${grayscale}${opacity}`;
   }
   constructor({ id, file, name }: { id: string; file: File; name: string }) {
     this.id = id;
@@ -159,6 +162,7 @@ export class Edits {
   blendMode: BlendMode = "normal";
   invert: boolean = false;
   grayscale: boolean = false;
+  opacity: number = 100;
   constructor() {
     makeAutoObservable(this);
   }
@@ -335,6 +339,7 @@ const Editor = observer(() => {
           blendMode,
           invert,
           grayscale,
+          opacity,
         } = layer.edits;
         const { slice, speed, quality } = store;
         layerWorker.render({
@@ -357,6 +362,7 @@ const Editor = observer(() => {
             blendMode,
             invert,
             grayscale,
+            opacity,
           },
           settings: {
             slice: toJS(slice),
@@ -376,7 +382,12 @@ const Editor = observer(() => {
     }
   });
 
-  const downloadBundle = async (urls: string[], name: string, ext: string) => {
+  const downloadBundle = async (
+    urls: string[],
+    slice: Slice,
+    name: string,
+    ext: string,
+  ) => {
     let url;
     let downloadExt = ext;
     let dispose;
@@ -384,7 +395,7 @@ const Editor = observer(() => {
       url = urls[0];
     } else {
       const files = urls.map((url, i) => ({
-        name: `${name}-${i + 1}${ext}`,
+        name: `${slugify(name, { lower: true })}-${getCoordFromSlice(slice, i)}${ext}`,
         input: str2ab(url),
       }));
       const blob = await downloadZip(files).blob();
@@ -402,6 +413,14 @@ const Editor = observer(() => {
     if (dispose) {
       URL.revokeObjectURL(dispose);
     }
+  };
+
+  const getCoordFromSlice = (slice: Slice, index: number) => {
+    const { x } = slice;
+    const currentY = Math.floor(index / x);
+    const currentX = (index % x) + 1;
+    console.log(currentY, currentX);
+    return `${numberToEncodedLetter(currentY)}${currentX}`;
   };
 
   const onDelete = action((id) => {
@@ -497,7 +516,6 @@ const Editor = observer(() => {
             <LayerEditor
               key={id}
               layer={layer}
-              index={index}
               onDelete={onDelete}
               moveDown={
                 index < sortedLayers.length - 1
@@ -598,7 +616,7 @@ const Editor = observer(() => {
               </div>
               <Button
                 stretch={true}
-                onClick={() => downloadBundle(previewUrls, name, ext)}
+                onClick={() => downloadBundle(previewUrls, slice, name, ext)}
               >
                 <Text weight="bold" align="center">
                   Download
@@ -620,7 +638,6 @@ const LayerEditor = observer(
     onDelete,
   }: {
     layer: LayerState;
-    index: number;
     moveUp: (() => void) | undefined;
     moveDown: (() => void) | undefined;
     onDelete(id: string): void;
@@ -642,6 +659,7 @@ const LayerEditor = observer(
       blendMode,
       invert,
       grayscale,
+      opacity,
     } = edits;
 
     return (
@@ -663,7 +681,7 @@ const LayerEditor = observer(
               <Button
                 stretch={true}
                 disabled={!moveUp}
-                onClick={moveUp ? moveUp : () => { }}
+                onClick={moveUp ? moveUp : () => {}}
               >
                 <span className="w-6 h-6 text-slate-100">
                   <ArrowUp />
@@ -672,7 +690,7 @@ const LayerEditor = observer(
               <Button
                 stretch={true}
                 disabled={!moveDown}
-                onClick={moveDown ? moveDown : () => { }}
+                onClick={moveDown ? moveDown : () => {}}
               >
                 <span className="w-6 h-6 text-slate-100">
                   <ArrowDown />
@@ -814,21 +832,21 @@ const LayerEditor = observer(
                   </div>
                 </Field>
                 <Field>
+                  <Label>Opacity</Label>
+                  <Range
+                    min={0}
+                    max={100}
+                    value={opacity}
+                    onChange={action((value) => (edits.opacity = value))}
+                  />
+                </Field>
+                <Field>
                   <Label>Brightness</Label>
                   <Range
                     min={-100}
                     max={100}
                     value={brightness}
                     onChange={action((value) => (edits.brightness = value))}
-                  />
-                </Field>
-                <Field>
-                  <Label>Contrast</Label>
-                  <Range
-                    min={-100}
-                    max={100}
-                    value={contrast}
-                    onChange={action((value) => (edits.contrast = value))}
                   />
                 </Field>
                 <div className="grid gap-2">
@@ -847,6 +865,15 @@ const LayerEditor = observer(
                     />
                   </Field>
                 </div>
+                <Field>
+                  <Label>Contrast</Label>
+                  <Range
+                    min={-100}
+                    max={100}
+                    value={contrast}
+                    onChange={action((value) => (edits.contrast = value))}
+                  />
+                </Field>
                 <Field>
                   <Label>Blend mode</Label>
                   <Select
@@ -936,6 +963,8 @@ const mapFromSlice = (images: string[], slice: Slice): string[][] => {
   }
   return rows;
 };
+
+// ----- ImageWorker -----
 
 interface ImageWorker {
   render(data: unknown): void;

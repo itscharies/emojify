@@ -24,7 +24,7 @@ self.onmessage = async (e: MessageEvent<PreviewWorkerRequest>) => {
     );
     const frames: Jimp[] = await mergeLayers(
       layerImages,
-      layers.map((layer) => layer.edits.blendMode),
+      layers.map((layer) => layer.edits),
     );
     // const splitFrames = frames.map((frame) => splitFrame(frame, slice));
     // console.log(splitFrames);
