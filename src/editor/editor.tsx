@@ -68,7 +68,7 @@ export class EditorState {
     }
     return layers.sort(([a], [b]) =>
       this.order.findIndex((id) => id === a) >
-      this.order.findIndex((id) => id === b)
+        this.order.findIndex((id) => id === b)
         ? 1
         : -1,
     );
@@ -303,14 +303,20 @@ const Editor = observer(() => {
       return;
     }
 
-    Array.from(files).map((file) => {
+    for (const file of Array.from(files)) {
       const id = idGenerator.next();
       const name = file.name;
+      const parts = name.split(".");
+      const ext = parts.pop();
+      if (ext && !ext.match(/jpe?g|png|gif/)) {
+        // TODO: show toast or soemthing
+        alert(`.${ext} not supported :(`);
+        continue;
+      }
       const layer = new LayerState({ id: id, file, name });
       store.layers.set(id, layer);
       store.order.push(id);
-      store.name === "" &&
-        (store.name = files[0].name.split(".").shift() || "emoji");
+      store.name === "" && (store.name = parts.join(".") || "emoji");
       const debouncedLayerRender = debounce(() => {
         const {
           flipX,
@@ -367,7 +373,7 @@ const Editor = observer(() => {
         }
       });
       store.disposers.set("id", dispose);
-    });
+    }
   });
 
   const downloadBundle = async (urls: string[], name: string, ext: string) => {
@@ -657,7 +663,7 @@ const LayerEditor = observer(
               <Button
                 stretch={true}
                 disabled={!moveUp}
-                onClick={moveUp ? moveUp : () => {}}
+                onClick={moveUp ? moveUp : () => { }}
               >
                 <span className="w-6 h-6 text-slate-100">
                   <ArrowUp />
@@ -666,7 +672,7 @@ const LayerEditor = observer(
               <Button
                 stretch={true}
                 disabled={!moveDown}
-                onClick={moveDown ? moveDown : () => {}}
+                onClick={moveDown ? moveDown : () => { }}
               >
                 <span className="w-6 h-6 text-slate-100">
                   <ArrowDown />
