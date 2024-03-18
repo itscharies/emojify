@@ -1,7 +1,7 @@
 import React from "react";
 import { FieldContext } from "./field";
 
-export function Range({
+export function RangeInput({
   onChange,
   value,
   min,

@@ -1,7 +1,7 @@
 import React from "react";
 import { FieldContext } from "./field";
 
-export function Number({
+export function NumberInput({
   value,
   onChange,
   min,

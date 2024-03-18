@@ -15,7 +15,7 @@ import { Text } from "../components/typography/text";
 import { Button } from "../components/input/button";
 import { FileInput } from "../components/input/file";
 import { Checkbox } from "../components/input/checkbox";
-import { Number } from "../components/input/number";
+import { NumberInput } from "../components/input/number";
 import { Image } from "../components/image";
 import { Divider } from "../components/divider";
 import { TextInput } from "../components/input/text";
@@ -23,7 +23,7 @@ import { Field } from "../components/input/field";
 import { Label } from "../components/input/label";
 import { Select } from "../components/input/select";
 import { RadioTabs } from "../components/input/radio_tabs";
-import { Range } from "../components/input/range";
+import { RangeInput } from "../components/input/range";
 import { IdGenerator } from "../base/id_generator";
 import {
   LayerWorkerRequest,
@@ -274,7 +274,10 @@ const Editor = observer(() => {
     [store],
   );
 
-  const layerWorker = useMemo(() => new LayerWorker(onRenderLayer), []);
+  const layerWorker = useMemo(
+    () => new LayerWorker(onRenderLayer),
+    [onRenderLayer],
+  );
   const previewWorker = useMemo(() => new PreviewWorker(), []);
 
   const debouncedPreview = debounce(async () => {
@@ -556,7 +559,7 @@ const Editor = observer(() => {
                 <div className="grid grid-flow-col gap-4 w-fit items-center">
                   <Field direction="col" align="center">
                     <Label>X:</Label>
-                    <Number
+                    <NumberInput
                       value={x}
                       min={1}
                       max={10}
@@ -565,7 +568,7 @@ const Editor = observer(() => {
                   </Field>
                   <Field direction="col" align="center">
                     <Label>Y:</Label>
-                    <Number
+                    <NumberInput
                       value={y}
                       min={1}
                       max={10}
@@ -577,7 +580,7 @@ const Editor = observer(() => {
               {isGif && (
                 <Field>
                   <Label>Speed</Label>
-                  <Number
+                  <NumberInput
                     value={speed}
                     onChange={onChangeSpeed}
                     min={2}
@@ -715,21 +718,21 @@ const LayerEditor = observer(
               <div className="grid gap-1.5 grid-cols-5">
                 <Field>
                   <Label>Top</Label>
-                  <Number
+                  <NumberInput
                     value={top}
                     onChange={action((value) => (edits.top = value))}
                   />
                 </Field>
                 <Field>
                   <Label>Left</Label>
-                  <Number
+                  <NumberInput
                     value={left}
                     onChange={action((value) => (edits.left = value))}
                   />
                 </Field>
                 <Field>
                   <Label>Width</Label>
-                  <Number
+                  <NumberInput
                     min={0}
                     value={width}
                     onChange={action((value) => (edits.width = value))}
@@ -737,7 +740,7 @@ const LayerEditor = observer(
                 </Field>
                 <Field>
                   <Label>Height</Label>
-                  <Number
+                  <NumberInput
                     min={0}
                     value={height}
                     onChange={action((value) => (edits.height = value))}
@@ -745,7 +748,7 @@ const LayerEditor = observer(
                 </Field>
                 <Field>
                   <Label>Scale</Label>
-                  <Number
+                  <NumberInput
                     min={0}
                     max={100}
                     value={scale}
@@ -768,7 +771,9 @@ const LayerEditor = observer(
                     <Button
                       stretch={true}
                       onClick={action(() => {
-                        edits.rotate = (edits.rotate - 90) % 360;
+                        edits.rotate =
+                          (edits.rotate - 90 * flipModifier(flipX, flipY)) %
+                          360;
                         setRotateB(rotateB + 360);
                       })}
                     >
@@ -782,7 +787,9 @@ const LayerEditor = observer(
                     <Button
                       stretch={true}
                       onClick={action(() => {
-                        edits.rotate = (edits.rotate + 90) % 360;
+                        edits.rotate =
+                          (edits.rotate + 90 * flipModifier(flipX, flipY)) %
+                          360;
                         setRotateA(rotateA - 360);
                       })}
                     >
@@ -832,7 +839,7 @@ const LayerEditor = observer(
                 </Field>
                 <Field>
                   <Label>Opacity</Label>
-                  <Range
+                  <RangeInput
                     min={0}
                     max={100}
                     value={opacity}
@@ -841,7 +848,7 @@ const LayerEditor = observer(
                 </Field>
                 <Field>
                   <Label>Brightness</Label>
-                  <Range
+                  <RangeInput
                     min={-100}
                     max={100}
                     value={brightness}
@@ -866,7 +873,7 @@ const LayerEditor = observer(
                 </div>
                 <Field>
                   <Label>Contrast</Label>
-                  <Range
+                  <RangeInput
                     min={-100}
                     max={100}
                     value={contrast}
@@ -921,6 +928,11 @@ const EmojiPreview = ({
     </div>
   );
 };
+
+// Modifies the rotation axis based on the current flip settings
+function flipModifier(flipX: boolean, flipY: boolean): number {
+  return Number(flipX) ^ Number(flipY) ? -1 : 1;
+}
 
 function arrayMove(arr, oldIndex, newIndex) {
   while (oldIndex < 0) {
