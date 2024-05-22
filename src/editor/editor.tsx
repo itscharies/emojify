@@ -422,7 +422,6 @@ const Editor = observer(() => {
   const copy = async (name: string, slice: Slice) => {
     try {
       await navigator.clipboard.writeText(getPastable(name, slice));
-      console.log('Content copied to clipboard');
     } catch (err) {
       console.error('Failed to copy: ', err);
     }
@@ -542,7 +541,7 @@ const Editor = observer(() => {
           />
         </div>
       </div>
-      <div className="mt-6 sticky bottom-0 bg-slate-950 before:content[''] before:absolute before:pointer-events-none before:w-full before:h-12 before:-translate-y-full before:bg-gradient-to-t before:from-slate-950 before:to-transparent">
+      <div className="mt-6 sticky bottom-0 bg-slate-950 before:content[''] before:absolute before:pointer-events-none before:w-full before:h-12 before:-translate-y-full before:bg-gradient-to-t before:from-slate-950 before:to-transparent z-90">
         <Divider />
         <div className="flex flex-row gap-6 items-center py-6">
           <div className="w-40 flex flex-col gap-2 items-center self-center">
@@ -942,7 +941,6 @@ const EmojiPreview = ({
   const scale = size / Math.max(width, height);
   const top = (size - (height * scale)) / 2;
   const left = (size - (width * scale)) / 2;
-  console.log(images[0])
   return (
     <div className="relative">
       <div className="outline outline-slate-800 outline-1" style={{ width: size, height: size }}>
