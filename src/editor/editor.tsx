@@ -695,16 +695,26 @@ const LayerEditor = observer(
       opacity,
     } = edits;
 
-    const scaledWidth = scale * width;
-    const scaledHeight = scale * height;
+    // Layer preview scaling
+    const size = 160;
+    const cellSize = OUTPUT_SIZE;
+    const imgWidth = slice.x * cellSize;
+    const imgHeight = slice.y * cellSize;
+    const imgScale = size / Math.max(imgWidth, imgHeight);
+    const imgTop = (size - (imgHeight * imgScale)) / 2;
+    const imgLeft = (size - (imgWidth * imgScale)) / 2;
 
     return (
       <div className="border border-slate-800 rounded-md p-6">
         <div className="flex w-full gap-6">
           <div className="w-40 min-w-40 flex flex-col gap-4">
             {dataUrl && (
-              <div className="w-40 flex justify-center items">
-                <Image src={dataUrl} />
+              <div className="outline outline-slate-800 outline-1 overflow-hidden" style={{ width: size, height: size }}>
+                <div
+                  style={{ transformOrigin: '0 0', transform: `translateX(${imgLeft}px) translateY(${imgTop}px) scale(${imgScale})`, width: imgWidth, height: imgHeight }}
+                >
+                    <Image src={dataUrl} />
+                </div>
               </div>
             )}
             <span className="break-all">
@@ -757,7 +767,7 @@ const LayerEditor = observer(
                     onChange={action((value) => (edits.top = value))}
                   />
                   <RangeInput
-                    min={-scaledHeight}
+                    min={-scale * height}
                     max={slice.y * OUTPUT_SIZE}
                     value={top}
                     onChange={action((value) => (edits.top = value))}
@@ -770,7 +780,7 @@ const LayerEditor = observer(
                     onChange={action((value) => (edits.left = value))}
                   />
                   <RangeInput
-                    min={-scaledWidth}
+                    min={-scale * width}
                     max={slice.x * OUTPUT_SIZE}
                     value={left}
                     onChange={action((value) => (edits.left = value))}
@@ -972,7 +982,7 @@ const EmojiPreview = ({
 }) => {
   const gap = 2;
   const size = 160;
-  const cellSize = 64;
+  const cellSize = OUTPUT_SIZE;
   const width = slice.x * cellSize + (slice.x - 1) * gap;
   const height = slice.y * cellSize + (slice.y - 1) * gap;
   const scale = size / Math.max(width, height);
@@ -980,7 +990,7 @@ const EmojiPreview = ({
   const left = (size - (width * scale)) / 2;
   return (
     <div className="relative">
-      <div className="outline outline-slate-800 outline-1" style={{ width: size, height: size }}>
+      <div className="outline outline-slate-800 outline-1 overflow-hidden" style={{ width: size, height: size }}>
         <div
           className="grid grid-flow-row items-center"
           style={{ transformOrigin: '0 0', transform: `translateX(${left}px) translateY(${top}px) scale(${scale})`, width, height, gap }}
