@@ -934,26 +934,42 @@ const EmojiPreview = ({
   images: string[];
   slice: Slice;
 }) => {
-  const gap = "gap-0.5";
+  const gap = 2;
+  const size = 160;
+  const cellSize = 64;
+  const width = slice.x * cellSize + (slice.x - 1) * gap;
+  const height = slice.y * cellSize + (slice.y - 1) * gap;
+  const scale = size / Math.max(width, height);
+  const top = (size - (height * scale)) / 2;
+  const left = (size - (width * scale)) / 2;
+  console.log(images[0])
   return (
     <div className="relative">
-      <div className={classNames("grid grid-flow-row items-center", gap)}>
-        {mapFromSlice(images, slice).map((row, rowIndex) => {
-          return (
-            <div
-              className={classNames("grid grid-flow-col items-center", gap)}
-              key={rowIndex}
-            >
-              {row.map((col, colIndex) => (
-                <div key={colIndex} className="aspect-square relative">
-                  <Image src={col} />
-                </div>
-              ))}
-            </div>
-          );
-        })}
+      <div className="outline outline-slate-800 outline-1" style={{ width: size, height: size }}>
+        <div
+          className="grid grid-flow-row items-center"
+          style={{ transformOrigin: '0 0', transform: `translateX(${left}px) translateY(${top}px) scale(${scale})`, width, height, gap }}
+        >
+          {mapFromSlice(images, slice).map((row, rowIndex) => {
+            return (
+              <div
+                className="grid grid-flow-col items-center"
+                style={{ gap }}
+                key={rowIndex}
+              >
+                {
+                  row.map((col, colIndex) => (
+                    <div key={colIndex} className="aspect-square relative" style={{ width: cellSize, height: cellSize }}>
+                      <Image src={col} />
+                    </div>
+                  ))
+                }
+              </div>
+            );
+          })}
+        </div>
       </div>
-    </div>
+    </div >
   );
 };
 
