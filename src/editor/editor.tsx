@@ -8,6 +8,7 @@ import {
   runInAction,
   toJS,
 } from "mobx";
+import classNames from "classnames";
 import { downloadZip } from "client-zip";
 import slugify from "slugify";
 import str2ab from "string-to-arraybuffer";
@@ -33,7 +34,6 @@ import {
   PreviewWorkerRequest,
   PreviewWorkerResponse,
 } from "../workers/preview_worker";
-import classNames from "classnames";
 import { debounce } from "../base/debounce";
 import { numberToEncodedLetter } from "../base/number_to_letter";
 import { Accordion } from "../components/accordion";

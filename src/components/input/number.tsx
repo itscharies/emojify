@@ -1,5 +1,9 @@
 import React from "react";
 import { FieldContext } from "./field";
+import { Text } from "../typography/text";
+import { Plus } from "../../icons/plus";
+import { Minus } from "../../icons/minus";
+import classNames from "classnames";
 
 export function NumberInput({
   value,
@@ -13,22 +17,53 @@ export function NumberInput({
   max?: number;
 }) {
   const classes =
-    "h-10 grid w-full content-center items-center px-2 py-1 border border-slate-800 rounded hover:cursor-pointer bg-slate-900 text-slate-100";
+    "h-10 grid w-full content-center items-center px-2 py-1 border border-slate-800 bg-slate-900 text-slate-100";
   return (
     <FieldContext.Consumer>
       {(id) => {
         return (
-          <input
-            className={classes}
-            id={id}
-            type="number"
-            value={value}
-            min={min}
-            max={max}
-            onChange={(e) => {
-              onChange(parseInt(e.target.value));
-            }}
-          />
+          <div className="flex">
+            <button
+              className={classNames(classes, 'rounded-tl rounded-bl flex justify-center hover:border-slate-600 hover:cursor-pointer z-20')}
+              onClick={() => {
+                if (min && value <= min) {
+                  return;
+                }
+                onChange(value - 1)
+              }}>
+              <span className="w-4 h-4">
+                <Minus />
+              </span>
+            </button>
+            <div className={classNames(classes, 'min-w-10 border-l-0 border-r-0 z-10 cursor-default')}>
+              <Text align="center">
+                {value}
+              </Text>
+            </div>
+            <input
+              className={classNames(classes, "text-center hidden")}
+              id={id}
+              type="number"
+              value={value}
+              min={min}
+              max={max}
+              onChange={(e) => {
+                onChange(parseInt(e.target.value));
+              }}
+            />
+            <button
+              className={classNames(classes, 'rounded-tr rounded-br flex justify-center hover:border-slate-600 hover:cursor-pointer z-20')}
+              onClick={() => {
+                if (max && value >= max) {
+                  return;
+                }
+                onChange(value + 1)
+              }}>
+              <span className="w-4 h-4">
+                <Plus />
+              </span>
+            </button>
+          </div>
         );
       }}
     </FieldContext.Consumer>
