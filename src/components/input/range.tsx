@@ -6,11 +6,13 @@ export function RangeInput({
   value,
   min,
   max,
+  step = 1,
 }: {
   onChange(value: number);
   value: number;
   min: number;
   max: number;
+  step?: number;
 }) {
   return (
     <FieldContext.Consumer>
@@ -18,11 +20,14 @@ export function RangeInput({
         return (
           <input
             id={id}
-            value={value}
+            value={value / step}
             type="range"
-            min={min}
-            max={max}
-            onChange={(e) => onChange(parseInt(e.target.value))}
+            min={min / step}
+            max={max / step}
+            onChange={(e) => {
+              const value = parseInt(e.target.value) * step;
+              onChange(Math.round(value * (1 / step)) / (1 / step))
+            }}
           />
         );
       }}

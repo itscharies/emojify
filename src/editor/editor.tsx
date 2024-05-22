@@ -17,6 +17,7 @@ import { Button } from "../components/input/button";
 import { FileInput } from "../components/input/file";
 import { Checkbox } from "../components/input/checkbox";
 import { NumberInput } from "../components/input/number";
+import { NumberStepperInput } from "../components/input/number_stepper";
 import { Image } from "../components/image";
 import { Divider } from "../components/divider";
 import { TextInput } from "../components/input/text";
@@ -518,6 +519,7 @@ const Editor = observer(() => {
         {sortedLayers.map(([id, layer], index) => {
           return (
             <LayerEditor
+              slice={slice}
               key={id}
               layer={layer}
               onDelete={onDelete}
@@ -561,7 +563,7 @@ const Editor = observer(() => {
                 <div className="grid grid-flow-col gap-4 w-fit items-center">
                   <Field direction="col" align="center">
                     <Label>X:</Label>
-                    <NumberInput
+                    <NumberStepperInput
                       value={x}
                       min={1}
                       max={10}
@@ -570,7 +572,7 @@ const Editor = observer(() => {
                   </Field>
                   <Field direction="col" align="center">
                     <Label>Y:</Label>
-                    <NumberInput
+                    <NumberStepperInput
                       value={y}
                       min={1}
                       max={10}
@@ -582,7 +584,7 @@ const Editor = observer(() => {
               {isGif && (
                 <Field>
                   <Label>Speed</Label>
-                  <NumberInput
+                  <NumberStepperInput
                     value={speed}
                     onChange={onChangeSpeed}
                     min={2}
@@ -661,11 +663,13 @@ const Editor = observer(() => {
 
 const LayerEditor = observer(
   ({
+    slice,
     layer,
     moveUp,
     moveDown,
     onDelete,
   }: {
+    slice: Slice,
     layer: LayerState;
     moveUp: (() => void) | undefined;
     moveDown: (() => void) | undefined;
@@ -690,6 +694,9 @@ const LayerEditor = observer(
       grayscale,
       opacity,
     } = edits;
+
+    const scaledWidth = scale * width;
+    const scaledHeight = scale * height;
 
     return (
       <div className="border border-slate-800 rounded-md p-6">
@@ -749,10 +756,22 @@ const LayerEditor = observer(
                     value={top}
                     onChange={action((value) => (edits.top = value))}
                   />
+                  <RangeInput
+                    min={-scaledHeight}
+                    max={slice.y * OUTPUT_SIZE}
+                    value={top}
+                    onChange={action((value) => (edits.top = value))}
+                  />
                 </Field>
                 <Field>
                   <Label>Left</Label>
                   <NumberInput
+                    value={left}
+                    onChange={action((value) => (edits.left = value))}
+                  />
+                  <RangeInput
+                    min={-scaledWidth}
+                    max={slice.x * OUTPUT_SIZE}
                     value={left}
                     onChange={action((value) => (edits.left = value))}
                   />
@@ -764,6 +783,12 @@ const LayerEditor = observer(
                     value={width}
                     onChange={action((value) => (edits.width = value))}
                   />
+                  <RangeInput
+                    min={1}
+                    max={slice.x * OUTPUT_SIZE}
+                    value={width}
+                    onChange={action((value) => (edits.width = value))}
+                  />
                 </Field>
                 <Field>
                   <Label>Height</Label>
@@ -772,13 +797,26 @@ const LayerEditor = observer(
                     value={height}
                     onChange={action((value) => (edits.height = value))}
                   />
+                  <RangeInput
+                    min={1}
+                    max={slice.y * OUTPUT_SIZE}
+                    value={height}
+                    onChange={action((value) => (edits.height = value))}
+                  />
                 </Field>
                 <Field>
                   <Label>Scale</Label>
                   <NumberInput
-                    min={0}
+                    min={1}
                     max={100}
                     value={scale}
+                    onChange={action((value) => (edits.scale = value))}
+                  />
+                  <RangeInput
+                    min={0}
+                    max={10}
+                    value={scale}
+                    step={0.1}
                     onChange={action((value) => (edits.scale = value))}
                   />
                 </Field>
@@ -924,7 +962,6 @@ const LayerEditor = observer(
   },
 );
 
-// TODO: Scale properly
 // TODO: Loading state
 const EmojiPreview = ({
   images,
