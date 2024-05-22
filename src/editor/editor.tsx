@@ -43,6 +43,7 @@ import { ArrowUp } from "../icons/arrow_up";
 import { ArrowDown } from "../icons/arrow_down";
 import { FlipX } from "../icons/flip_x";
 import { FlipY } from "../icons/flip_y";
+import { Copy } from "../icons/copy";
 
 export const OUTPUT_SIZE = 64;
 
@@ -70,7 +71,7 @@ export class EditorState {
     }
     return layers.sort(([a], [b]) =>
       this.order.findIndex((id) => id === a) >
-      this.order.findIndex((id) => id === b)
+        this.order.findIndex((id) => id === b)
         ? 1
         : -1,
     );
@@ -398,7 +399,7 @@ const Editor = observer(() => {
       url = urls[0];
     } else {
       const files = urls.map((url, i) => ({
-        name: `${slugify(name, { lower: true })}-${getCoordFromSlice(slice, i)}${ext}`,
+        name: `${getName(name, slice, i)}${ext}`,
         input: str2ab(url),
       }));
       const blob = await downloadZip(files).blob();
@@ -418,12 +419,14 @@ const Editor = observer(() => {
     }
   };
 
-  const getCoordFromSlice = (slice: Slice, index: number) => {
-    const { x } = slice;
-    const currentY = Math.floor(index / x) + 1;
-    const currentX = (index % x) + 1;
-    return `${numberToEncodedLetter(currentY)}${currentX}`;
-  };
+  const copy = async (name: string, slice: Slice) => {
+    try {
+      await navigator.clipboard.writeText(getPastable(name, slice));
+      console.log('Content copied to clipboard');
+    } catch (err) {
+      console.error('Failed to copy: ', err);
+    }
+  }
 
   const onDelete = action((id) => {
     store.layers.delete(id);
@@ -609,7 +612,7 @@ const Editor = observer(() => {
                 </Field>
               )}
             </div>
-            <div className="flex gap-4 flex-row items-end">
+            <div className="flex gap-2 flex-row items-end">
               <div className="w-[200%]">
                 <Field>
                   <Label>File name</Label>
@@ -617,6 +620,7 @@ const Editor = observer(() => {
                 </Field>
               </div>
               <Button
+                disabled={!name}
                 stretch={true}
                 onClick={() => downloadBundle(previewUrls, slice, name, ext)}
               >
@@ -624,6 +628,30 @@ const Editor = observer(() => {
                   Download
                 </Text>
               </Button>
+            </div>
+            <div className="grid gap-1 grid-flow-row">
+              <Text weight="bold">
+                Copy emoji text
+              </Text>
+              <div className="border border-slate-800 rounded-md p-2 flex flex-row gap-2 justify-between">
+                <div className="max-h-14 max-w-fit overflow-y-auto overflow-x-hidden">
+                  <Text size="xsmall">
+                    <span className="whitespace-pre-wrap" style={{ fontFamily: 'monospace' }}>
+                      {getPastable(name, slice)}
+                    </span>
+                  </Text>
+                </div>
+                <Button
+                  disabled={!name}
+                  onClick={() => copy(name, slice)}
+                >
+                  <span
+                    className="w-6 h-6 text-slate-100"
+                  >
+                    <Copy />
+                  </span>
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -683,7 +711,7 @@ const LayerEditor = observer(
               <Button
                 stretch={true}
                 disabled={!moveUp}
-                onClick={moveUp ? moveUp : () => {}}
+                onClick={moveUp ? moveUp : () => { }}
               >
                 <span className="w-6 h-6 text-slate-100">
                   <ArrowUp />
@@ -692,7 +720,7 @@ const LayerEditor = observer(
               <Button
                 stretch={true}
                 disabled={!moveDown}
-                onClick={moveDown ? moveDown : () => {}}
+                onClick={moveDown ? moveDown : () => { }}
               >
                 <span className="w-6 h-6 text-slate-100">
                   <ArrowDown />
@@ -973,6 +1001,37 @@ const mapFromSlice = (images: string[], slice: Slice): string[][] => {
     rows.push(column);
   }
   return rows;
+};
+
+const getCoordFromSlice = (slice: Slice, index: number) => {
+  const { x } = slice;
+  const currentY = Math.floor(index / x) + 1;
+  const currentX = (index % x) + 1;
+  return `${numberToEncodedLetter(currentY)}${currentX}`;
+};
+
+const getName = (name: string, slice: Slice, i: number): string => {
+  if (slice.x === 1 && slice.y === 1) {
+    return slugify(name, { lower: true });
+  }
+  return `${slugify(name, { lower: true })}-${getCoordFromSlice(slice, i)}`;
+};
+
+const getPastable = (name, slice: Slice): string => {
+  if (!name) {
+    return '';
+  }
+  const lines: string[] = [];
+  let i = 0;
+  for (let y = 0; y < slice.y; y++) {
+    let line: string = '';
+    for (let x = 0; x < slice.x; x++) {
+      line += `:${getName(name, slice, i)}:`;
+      i++;
+    }
+    lines.push(line);
+  }
+  return lines.join('\n');
 };
 
 // ----- ImageWorker -----
