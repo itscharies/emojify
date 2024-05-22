@@ -16,19 +16,17 @@ export function NumberInput({
   min?: number;
   max?: number;
 }) {
-  const classes =
-    "h-10 grid w-full content-center items-center px-2 py-1 border border-slate-800 bg-slate-900 text-slate-100";
+  const classes = "h-10 grid w-full content-center items-center px-2 py-1 border border-slate-800 bg-slate-900 text-slate-100";
+  const buttonClasses = "flex justify-center hover:border-slate-600 hover:cursor-pointer z-20 disabled:cursor-not-allowed disabled:border-slate-800 disabled:text-slate-500";
   return (
     <FieldContext.Consumer>
       {(id) => {
         return (
           <div className="flex">
             <button
-              className={classNames(classes, 'rounded-tl rounded-bl flex justify-center hover:border-slate-600 hover:cursor-pointer z-20')}
+              disabled={!!min && value <= min}
+              className={classNames(classes, buttonClasses, 'rounded-tl rounded-bl')}
               onClick={() => {
-                if (min && value <= min) {
-                  return;
-                }
                 onChange(value - 1)
               }}>
               <span className="w-4 h-4">
@@ -52,11 +50,9 @@ export function NumberInput({
               }}
             />
             <button
-              className={classNames(classes, 'rounded-tr rounded-br flex justify-center hover:border-slate-600 hover:cursor-pointer z-20')}
+              disabled={!!max && value >= max}
+              className={classNames(classes, buttonClasses, 'rounded-tr rounded-br')}
               onClick={() => {
-                if (max && value >= max) {
-                  return;
-                }
                 onChange(value + 1)
               }}>
               <span className="w-4 h-4">
