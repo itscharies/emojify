@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import toast from "react-hot-toast";
 import { observer, useLocalObservable } from "mobx-react-lite";
 import {
   action,
@@ -45,6 +46,7 @@ import { ArrowDown } from "../icons/arrow_down";
 import { FlipX } from "../icons/flip_x";
 import { FlipY } from "../icons/flip_y";
 import { Copy } from "../icons/copy";
+import { Toast } from "../components/toasts";
 
 export const OUTPUT_SIZE = 64;
 
@@ -423,6 +425,7 @@ const Editor = observer(() => {
   const copy = async (name: string, slice: Slice) => {
     try {
       await navigator.clipboard.writeText(getPastable(name, slice));
+      showToast('Copy to clipboard!')
     } catch (err) {
       console.error('Failed to copy: ', err);
     }
@@ -713,7 +716,7 @@ const LayerEditor = observer(
                 <div
                   style={{ transformOrigin: '0 0', transform: `translateX(${imgLeft}px) translateY(${imgTop}px) scale(${imgScale})`, width: imgWidth, height: imgHeight }}
                 >
-                    <Image src={dataUrl} />
+                  <Image src={dataUrl} />
                 </div>
               </div>
             )}
@@ -1094,6 +1097,23 @@ const getPastable = (name, slice: Slice): string => {
   }
   return lines.join('\n');
 };
+
+function showToast(message: string) {
+  let c = 0;
+  toast.custom((t) => {
+    // First t.visible comes back as true 😑    
+    c++;
+    const visible = c == 1 ? false : t.visible;
+    return <div style={{
+      opacity: visible ? 1 : 0,
+      transform: visible ? 'scale(1) translateY(0)' : 'scale(0.95) translateY(-10%)',
+      transition: "150ms ease-out",
+      transitionProperty: "opacity transform"
+    }} >
+      <Toast message="Copied to clipboard!" />
+    </div>
+  });
+}
 
 // ----- ImageWorker -----
 
