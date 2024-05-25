@@ -1112,7 +1112,7 @@ function showToast(message: string) {
     }} >
       <Toast message="Copied to clipboard!" />
     </div>
-  });
+  }, { duration: 2000 });
 }
 
 // ----- ImageWorker -----
