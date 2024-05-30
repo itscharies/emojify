@@ -74,7 +74,7 @@ export class EditorState {
     }
     return layers.sort(([a], [b]) =>
       this.order.findIndex((id) => id === a) >
-        this.order.findIndex((id) => id === b)
+      this.order.findIndex((id) => id === b)
         ? 1
         : -1,
     );
