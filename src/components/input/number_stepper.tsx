@@ -16,8 +16,10 @@ export function NumberStepperInput({
   min?: number;
   max?: number;
 }) {
-  const classes = "h-10 grid content-center items-center px-2 py-1 border border-slate-800 bg-slate-900 text-slate-100";
-  const buttonClasses = "flex justify-center hover:border-slate-600 hover:cursor-pointer disabled:cursor-not-allowed disabled:border-slate-800 disabled:text-slate-500";
+  const classes =
+    "h-10 grid content-center items-center px-2 py-1 border border-slate-800 bg-slate-900 text-slate-100";
+  const buttonClasses =
+    "flex justify-center hover:border-slate-600 hover:cursor-pointer disabled:cursor-not-allowed disabled:border-slate-800 disabled:text-slate-500";
   const [editing, setEditing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   return (
@@ -27,19 +29,31 @@ export function NumberStepperInput({
           <div className="grid grid-flow-col">
             <button
               disabled={!!min && value <= min}
-              className={classNames(classes, buttonClasses, 'rounded-tl rounded-bl')}
+              className={classNames(
+                classes,
+                buttonClasses,
+                "rounded-tl rounded-bl",
+              )}
               onClick={() => {
-                onChange(value - 1)
-              }}>
+                onChange(value - 1);
+              }}
+            >
               <span className="w-4 h-4">
                 <Minus />
               </span>
             </button>
-            <div className={classNames(classes, 'w-auto min-w-16 border-l-0 border-r-0 z-0 h-10 grid content-center items-center')}>
-              {
-                editing ? <input
+            <div
+              className={classNames(
+                classes,
+                "w-auto min-w-16 border-l-0 border-r-0 z-0 h-10 grid content-center items-center",
+              )}
+            >
+              {editing ? (
+                <input
                   ref={inputRef}
-                  className={classNames(" min-w-6 bg-slate-900 text-slate-100 text-center appearance-none z-10")}
+                  className={classNames(
+                    " min-w-6 bg-slate-900 text-slate-100 text-center appearance-none z-10",
+                  )}
                   id={id}
                   type="number"
                   value={value}
@@ -49,24 +63,30 @@ export function NumberStepperInput({
                     onChange(parseInt(e.target.value));
                   }}
                   onBlur={() => setEditing(false)}
-                /> :
-                  <button onClick={() => {
+                />
+              ) : (
+                <button
+                  onClick={() => {
                     setEditing(true);
-                    setTimeout(() => inputRef.current?.focus())
-                  }}>
-                    <Text align="center">
-                      {value}
-                    </Text>
-                  </button>
-              }
+                    setTimeout(() => inputRef.current?.focus());
+                  }}
+                >
+                  <Text align="center">{value}</Text>
+                </button>
+              )}
             </div>
 
             <button
               disabled={!!max && value >= max}
-              className={classNames(classes, buttonClasses, 'rounded-tr rounded-br')}
+              className={classNames(
+                classes,
+                buttonClasses,
+                "rounded-tr rounded-br",
+              )}
               onClick={() => {
-                onChange(value + 1)
-              }}>
+                onChange(value + 1);
+              }}
+            >
               <span className="w-4 h-4">
                 <Plus />
               </span>

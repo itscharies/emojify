@@ -425,11 +425,11 @@ const Editor = observer(() => {
   const copy = async (name: string, slice: Slice) => {
     try {
       await navigator.clipboard.writeText(getPastable(name, slice));
-      showToast('Copy to clipboard!')
+      showToast("Copy to clipboard!");
     } catch (err) {
-      console.error('Failed to copy: ', err);
+      console.error("Failed to copy: ", err);
     }
-  }
+  };
 
   const onDelete = action((id) => {
     store.layers.delete(id);
@@ -634,24 +634,20 @@ const Editor = observer(() => {
               </Button>
             </div>
             <div className="grid gap-1 grid-flow-row">
-              <Text weight="bold">
-                Copy emoji text
-              </Text>
+              <Text weight="bold">Copy emoji text</Text>
               <div className="border border-slate-800 rounded-md p-2 flex flex-row gap-2 justify-between">
                 <div className="max-h-14 max-w-fit overflow-y-auto overflow-x-hidden">
                   <Text size="xsmall">
-                    <span className="whitespace-pre-wrap" style={{ fontFamily: 'monospace' }}>
+                    <span
+                      className="whitespace-pre-wrap"
+                      style={{ fontFamily: "monospace" }}
+                    >
                       {getPastable(name, slice)}
                     </span>
                   </Text>
                 </div>
-                <Button
-                  disabled={!name}
-                  onClick={() => copy(name, slice)}
-                >
-                  <span
-                    className="w-6 h-6 text-slate-100"
-                  >
+                <Button disabled={!name} onClick={() => copy(name, slice)}>
+                  <span className="w-6 h-6 text-slate-100">
                     <Copy />
                   </span>
                 </Button>
@@ -672,7 +668,7 @@ const LayerEditor = observer(
     moveDown,
     onDelete,
   }: {
-    slice: Slice,
+    slice: Slice;
     layer: LayerState;
     moveUp: (() => void) | undefined;
     moveDown: (() => void) | undefined;
@@ -704,17 +700,25 @@ const LayerEditor = observer(
     const imgWidth = slice.x * cellSize;
     const imgHeight = slice.y * cellSize;
     const imgScale = size / Math.max(imgWidth, imgHeight);
-    const imgTop = (size - (imgHeight * imgScale)) / 2;
-    const imgLeft = (size - (imgWidth * imgScale)) / 2;
+    const imgTop = (size - imgHeight * imgScale) / 2;
+    const imgLeft = (size - imgWidth * imgScale) / 2;
 
     return (
       <div className="border border-slate-800 rounded-md p-6">
         <div className="flex w-full gap-6">
           <div className="w-40 min-w-40 flex flex-col gap-4">
             {dataUrl && (
-              <div className="outline outline-slate-800 outline-1 overflow-hidden" style={{ width: size, height: size }}>
+              <div
+                className="outline outline-slate-800 outline-1 overflow-hidden"
+                style={{ width: size, height: size }}
+              >
                 <div
-                  style={{ transformOrigin: '0 0', transform: `translateX(${imgLeft}px) translateY(${imgTop}px) scale(${imgScale})`, width: imgWidth, height: imgHeight }}
+                  style={{
+                    transformOrigin: "0 0",
+                    transform: `translateX(${imgLeft}px) translateY(${imgTop}px) scale(${imgScale})`,
+                    width: imgWidth,
+                    height: imgHeight,
+                  }}
                 >
                   <Image src={dataUrl} />
                 </div>
@@ -730,7 +734,7 @@ const LayerEditor = observer(
               <Button
                 stretch={true}
                 disabled={!moveUp}
-                onClick={moveUp ? moveUp : () => { }}
+                onClick={moveUp ? moveUp : () => {}}
               >
                 <span className="w-6 h-6 text-slate-100">
                   <ArrowUp />
@@ -739,7 +743,7 @@ const LayerEditor = observer(
               <Button
                 stretch={true}
                 disabled={!moveDown}
-                onClick={moveDown ? moveDown : () => { }}
+                onClick={moveDown ? moveDown : () => {}}
               >
                 <span className="w-6 h-6 text-slate-100">
                   <ArrowDown />
@@ -989,14 +993,23 @@ const EmojiPreview = ({
   const width = slice.x * cellSize + (slice.x - 1) * gap;
   const height = slice.y * cellSize + (slice.y - 1) * gap;
   const scale = size / Math.max(width, height);
-  const top = (size - (height * scale)) / 2;
-  const left = (size - (width * scale)) / 2;
+  const top = (size - height * scale) / 2;
+  const left = (size - width * scale) / 2;
   return (
     <div className="relative">
-      <div className="outline outline-slate-800 outline-1 overflow-hidden" style={{ width: size, height: size }}>
+      <div
+        className="outline outline-slate-800 outline-1 overflow-hidden"
+        style={{ width: size, height: size }}
+      >
         <div
           className="grid grid-flow-row items-center"
-          style={{ transformOrigin: '0 0', transform: `translateX(${left}px) translateY(${top}px) scale(${scale})`, width, height, gap }}
+          style={{
+            transformOrigin: "0 0",
+            transform: `translateX(${left}px) translateY(${top}px) scale(${scale})`,
+            width,
+            height,
+            gap,
+          }}
         >
           {mapFromSlice(images, slice).map((row, rowIndex) => {
             return (
@@ -1005,19 +1018,21 @@ const EmojiPreview = ({
                 style={{ gap }}
                 key={rowIndex}
               >
-                {
-                  row.map((col, colIndex) => (
-                    <div key={colIndex} className="aspect-square relative" style={{ width: cellSize, height: cellSize }}>
-                      <Image src={col} />
-                    </div>
-                  ))
-                }
+                {row.map((col, colIndex) => (
+                  <div
+                    key={colIndex}
+                    className="aspect-square relative"
+                    style={{ width: cellSize, height: cellSize }}
+                  >
+                    <Image src={col} />
+                  </div>
+                ))}
               </div>
             );
           })}
         </div>
       </div>
-    </div >
+    </div>
   );
 };
 
@@ -1083,36 +1098,45 @@ const getName = (name: string, slice: Slice, i: number): string => {
 
 const getPastable = (name, slice: Slice): string => {
   if (!name) {
-    return '';
+    return "";
   }
   const lines: string[] = [];
   let i = 0;
   for (let y = 0; y < slice.y; y++) {
-    let line: string = '';
+    let line: string = "";
     for (let x = 0; x < slice.x; x++) {
       line += `:${getName(name, slice, i)}:`;
       i++;
     }
     lines.push(line);
   }
-  return lines.join('\n');
+  return lines.join("\n");
 };
 
 function showToast(message: string) {
   let c = 0;
-  toast.custom((t) => {
-    // First t.visible comes back as true 😑    
-    c++;
-    const visible = c == 1 ? false : t.visible;
-    return <div style={{
-      opacity: visible ? 1 : 0,
-      transform: visible ? 'scale(1) translateY(0)' : 'scale(0.95) translateY(-10%)',
-      transition: "150ms ease-out",
-      transitionProperty: "opacity transform"
-    }} >
-      <Toast message="Copied to clipboard!" />
-    </div>
-  }, { duration: 2000 });
+  toast.custom(
+    (t) => {
+      // First t.visible comes back as true 😑
+      c++;
+      const visible = c == 1 ? false : t.visible;
+      return (
+        <div
+          style={{
+            opacity: visible ? 1 : 0,
+            transform: visible
+              ? "scale(1) translateY(0)"
+              : "scale(0.95) translateY(-10%)",
+            transition: "150ms ease-out",
+            transitionProperty: "opacity transform",
+          }}
+        >
+          <Toast message={message} />
+        </div>
+      );
+    },
+    { duration: 2000 },
+  );
 }
 
 // ----- ImageWorker -----

@@ -26,7 +26,7 @@ export function RangeInput({
             max={max / step}
             onChange={(e) => {
               const value = parseInt(e.target.value) * step;
-              onChange(Math.round(value * (1 / step)) / (1 / step))
+              onChange(Math.round(value * (1 / step)) / (1 / step));
             }}
           />
         );
