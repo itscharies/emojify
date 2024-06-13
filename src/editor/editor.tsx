@@ -74,7 +74,7 @@ export class EditorState {
     }
     return layers.sort(([a], [b]) =>
       this.order.findIndex((id) => id === a) >
-      this.order.findIndex((id) => id === b)
+        this.order.findIndex((id) => id === b)
         ? 1
         : -1,
     );
@@ -734,7 +734,7 @@ const LayerEditor = observer(
               <Button
                 stretch={true}
                 disabled={!moveUp}
-                onClick={moveUp ? moveUp : () => {}}
+                onClick={moveUp ? moveUp : () => { }}
               >
                 <span className="w-6 h-6 text-slate-100">
                   <ArrowUp />
@@ -743,7 +743,7 @@ const LayerEditor = observer(
               <Button
                 stretch={true}
                 disabled={!moveDown}
-                onClick={moveDown ? moveDown : () => {}}
+                onClick={moveDown ? moveDown : () => { }}
               >
                 <span className="w-6 h-6 text-slate-100">
                   <ArrowDown />
@@ -1090,8 +1090,8 @@ const getCoordFromSlice = (slice: Slice, index: number) => {
 };
 
 const getName = (name: string, slice: Slice, i: number): string => {
-  if (slice.x === 1) {
-    return slugify(name, { lower: true });
+  if (slice.x === 1 || slice.y === 1) {
+    return `${slugify(name, { lower: true })}-${i}`;
   }
   return `${slugify(name, { lower: true })}-${getCoordFromSlice(slice, i)}`;
 };
