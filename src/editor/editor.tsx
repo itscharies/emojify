@@ -1090,10 +1090,11 @@ const getCoordFromSlice = (slice: Slice, index: number) => {
 };
 
 const getName = (name: string, slice: Slice, i: number): string => {
+  const slug = slugify(name, { lower: true });
   if (slice.x === 1 || slice.y === 1) {
-    return `${slugify(name, { lower: true })}-${i}`;
+    return `${slug}-${i}`;
   }
-  return `${slugify(name, { lower: true })}-${getCoordFromSlice(slice, i)}`;
+  return `${slug}-${getCoordFromSlice(slice, i)}`;
 };
 
 const getPastable = (name, slice: Slice): string => {
