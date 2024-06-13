@@ -1090,7 +1090,7 @@ const getCoordFromSlice = (slice: Slice, index: number) => {
 };
 
 const getName = (name: string, slice: Slice, i: number): string => {
-  if (slice.x === 1 && slice.y === 1) {
+  if (slice.x === 1) {
     return slugify(name, { lower: true });
   }
   return `${slugify(name, { lower: true })}-${getCoordFromSlice(slice, i)}`;
