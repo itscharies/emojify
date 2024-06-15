@@ -1091,6 +1091,9 @@ const getCoordFromSlice = (slice: Slice, index: number) => {
 
 const getName = (name: string, slice: Slice, i: number): string => {
   const slug = slugify(name, { lower: true });
+  if (slice.x === 1 && slice.y === 1) {
+    return `${slug}`;
+  }
   if (slice.x === 1 || slice.y === 1) {
     return `${slug}-${i}`;
   }
