@@ -1,12 +1,6 @@
-import type Jimp from "jimp";
-import { Edits, Slice } from "../editor/editor";
-import { processImage, getDataUrl } from "./common";
+import { Edits } from "../editor/editor";
+import { processImage, getDataUrl, Settings } from "./common";
 
-type Settings = {
-  slice: Slice;
-  speed: number;
-  quality?: number;
-};
 export type LayerWorkerRequest = {
   id: string;
   file: File;
@@ -21,10 +15,14 @@ self.onmessage = async (e: MessageEvent<LayerWorkerRequest>) => {
       id,
       file,
       edits,
-      settings: { slice, speed, quality },
+      settings: { slice, frameSpeed, quality },
     } = e.data;
-    const frames: Jimp[] = await processImage(file, edits, slice);
-    const url = await getDataUrl(frames, speed, quality);
+    const { frames, framerates } = await processImage(file, edits, slice);
+    const url = await getDataUrl(
+      frames,
+      frameSpeed.type === "constant" ? [frameSpeed.speed] : framerates || [0], // This should never happen but...
+      quality,
+    );
     const res: LayerWorkerResponse = {
       id,
       url,
@@ -32,5 +30,3 @@ self.onmessage = async (e: MessageEvent<LayerWorkerRequest>) => {
     self.postMessage(res);
   }
 };
-
-export {};

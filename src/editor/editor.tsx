@@ -51,6 +51,9 @@ import { Toast } from "../components/toasts";
 export const OUTPUT_SIZE = 64;
 
 export type Slice = { x: number; y: number };
+export type FrameSpeed =
+  | { type: "src"; id: string }
+  | { type: "constant"; speed: number };
 
 export class EditorState {
   order: string[] = [];
@@ -60,14 +63,27 @@ export class EditorState {
   previewUrls: string[] = [];
   slice: Slice = { x: 1, y: 1 };
   // TODO: preserve original speed
-  speed: number = 5;
+  get frameSpeed(): FrameSpeed {
+    const DEFAULT = { type: "constant", speed: 5 } as const;
+    if (this.layers.size === 0) {
+      return DEFAULT;
+    }
+    const firstAnimatedLayer = this.sortedLayers.find(([_, layer]) => {
+      const { ext } = getFilename(layer.file);
+      return ext === "gif";
+    });
+    if (!firstAnimatedLayer) {
+      return DEFAULT;
+    }
+    return { type: "src", id: firstAnimatedLayer[1].id };
+  }
   quality: number | undefined = undefined;
   get isGif() {
     return Array.from(this.layers.values()).some(
       (layer) => layer.file.type === "image/gif",
     );
   }
-  get sortedLayers() {
+  get sortedLayers(): [string, LayerState][] {
     const layers = Array.from(this.layers.entries());
     if (this.order.length === 0) {
       return layers;
@@ -83,7 +99,7 @@ export class EditorState {
     return this.layers.size > 0;
   }
   get editsHash() {
-    return `${this.slice.x}${this.slice.y}${this.speed}${this.quality}${this.order.join("")}`;
+    return `${this.slice.x}${this.slice.y}${JSON.stringify(this.frameSpeed)}${this.quality}${this.order.join("")}`;
   }
   get previewHash(): string {
     return (
@@ -285,12 +301,12 @@ const Editor = observer(() => {
   const previewWorker = useMemo(() => new PreviewWorker(), []);
 
   const debouncedPreview = debounce(async () => {
-    const { sortedLayers, slice, speed, quality } = store;
+    const { sortedLayers, slice, frameSpeed, quality } = store;
     const { urls } = await previewWorker.render({
       layers: sortedLayers.map(([_, layer]) => toJS(layer)),
       settings: {
         slice: toJS(slice),
-        speed,
+        frameSpeed: toJS(frameSpeed),
         quality,
       },
     });
@@ -316,18 +332,15 @@ const Editor = observer(() => {
 
     for (const file of Array.from(files)) {
       const id = idGenerator.next();
-      const name = file.name;
-      const parts = name.split(".");
-      const ext = parts.pop();
+      const { name, ext } = getFilename(file);
       if (ext && !ext.match(/jpe?g|png|gif/i)) {
-        // TODO: show toast or soemthing
-        alert(`.${ext} not supported :(`);
+        showToast(`.${ext} is not supported :(`);
         continue;
       }
       const layer = new LayerState({ id: id, file, name });
       store.layers.set(id, layer);
       store.order.push(id);
-      store.name === "" && (store.name = parts.join(".") || "emoji");
+      store.name === "" && (store.name = name || "emoji");
       const debouncedLayerRender = debounce(() => {
         const {
           flipX,
@@ -348,7 +361,7 @@ const Editor = observer(() => {
           grayscale,
           opacity,
         } = layer.edits;
-        const { slice, speed, quality } = store;
+        const { slice, frameSpeed, quality } = store;
         layerWorker.render({
           id,
           file,
@@ -373,7 +386,7 @@ const Editor = observer(() => {
           },
           settings: {
             slice: toJS(slice),
-            speed,
+            frameSpeed: toJS(frameSpeed),
             quality,
           },
         });
@@ -425,7 +438,7 @@ const Editor = observer(() => {
   const copy = async (name: string, slice: Slice) => {
     try {
       await navigator.clipboard.writeText(getPastable(name, slice));
-      showToast("Copy to clipboard!");
+      showToast("Copied to clipboard!");
     } catch (err) {
       console.error("Failed to copy: ", err);
     }
@@ -460,22 +473,10 @@ const Editor = observer(() => {
     );
   }
 
-  const {
-    sortedLayers,
-    order,
-    name,
-    previewUrls,
-    slice,
-    speed,
-    quality,
-    isGif,
-  } = store;
+  const { sortedLayers, order, name, previewUrls, slice, quality, isGif } =
+    store;
   const { x, y } = slice;
   const ext = isGif ? ".gif" : ".png";
-
-  const onChangeSpeed = action((speed) => {
-    store.speed = speed;
-  });
 
   const onChangeQuality = action((quality: string) => {
     switch (quality) {
@@ -584,17 +585,6 @@ const Editor = observer(() => {
                   </Field>
                 </div>
               </div>
-              {isGif && (
-                <Field>
-                  <Label>Speed</Label>
-                  <NumberStepperInput
-                    value={speed}
-                    onChange={onChangeSpeed}
-                    min={2}
-                    max={30}
-                  />
-                </Field>
-              )}
               {isGif && (
                 <Field>
                   <Label>Quality</Label>
@@ -734,7 +724,7 @@ const LayerEditor = observer(
               <Button
                 stretch={true}
                 disabled={!moveUp}
-                onClick={moveUp ? moveUp : () => {}}
+                onClick={moveUp || (() => void 0)}
               >
                 <span className="w-6 h-6 text-slate-100">
                   <ArrowUp />
@@ -743,7 +733,7 @@ const LayerEditor = observer(
               <Button
                 stretch={true}
                 disabled={!moveDown}
-                onClick={moveDown ? moveDown : () => {}}
+                onClick={moveDown || (() => void 0)}
               >
                 <span className="w-6 h-6 text-slate-100">
                   <ArrowDown />
@@ -1035,6 +1025,11 @@ const EmojiPreview = ({
     </div>
   );
 };
+
+function getFilename(file: File) {
+  const parts = file.name.split(".");
+  return { ext: parts.pop(), name: parts[0] };
+}
 
 // Modifies the rotation axis based on the current flip settings
 function flipModifier(flipX: boolean, flipY: boolean): number {

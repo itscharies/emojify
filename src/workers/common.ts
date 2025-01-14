@@ -1,31 +1,45 @@
 import type Jimp from "jimp";
 import jimp from "jimp/es";
 import { GifCodec, GifFrame, GifUtil } from "gifwrap";
-import { BlendMode, Edits, OUTPUT_SIZE, Slice } from "../editor/editor";
+import {
+  BlendMode,
+  Edits,
+  FrameSpeed,
+  OUTPUT_SIZE,
+  Slice,
+} from "../editor/editor";
+
+export type Settings = {
+  slice: Slice;
+  frameSpeed: FrameSpeed;
+  quality?: number;
+};
 
 // Proces the image, returns a list of frames[] which is a list of parts[]
 export async function processImage(
   file: File,
   edits: Edits,
   slice: Slice,
-): Promise<Jimp[]> {
+): Promise<{ frames: Jimp[]; framerates?: number[] }> {
   const isGif = file.type === "image/gif";
   if (isGif) {
     const arrayBuffer = await file.arrayBuffer();
     const gif = await GifUtil.read(Buffer.from(arrayBuffer));
     const gifs: Jimp[] = [];
+    const framerates: number[] = [];
     gif.frames.forEach((frame) => {
       const image: Jimp = GifUtil.copyAsJimp(jimp, frame);
       const edited = applyEdits(image, edits);
       gifs.push(resizeToSlice(edited, slice, edits));
+      framerates.push(frame.delayCentisecs);
     });
-    return gifs;
+    return { frames: gifs, framerates };
   } else {
     const arrayBuffer = await file.arrayBuffer();
     const image = await jimp.read(Buffer.from(arrayBuffer));
     const edited = applyEdits(image, edits);
     const resized = resizeToSlice(edited, slice, edits);
-    return [resized];
+    return { frames: [resized] };
   }
 }
 
@@ -110,18 +124,18 @@ export async function mergeLayers(
 
 export async function getDataUrl(
   frames: Jimp[],
-  speed: number,
+  speeds: number[],
   quality?: number,
 ): Promise<string> {
   if (frames.length > 1) {
     const codec = new GifCodec();
     // TODO: preserve frame rate
-    const gifFrames = frames.map((jimpFrame) => {
+    const gifFrames = frames.map((jimpFrame, i) => {
       if (quality) {
         jimpFrame.posterize(quality);
       }
       const frame = new GifFrame(jimpFrame.bitmap);
-      frame.delayCentisecs = speed;
+      frame.delayCentisecs = speeds[i % frames.length];
       return frame;
     });
     // Ensure color isn't out of bounds
